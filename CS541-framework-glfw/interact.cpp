@@ -161,7 +161,7 @@ void MouseMotion(GLFWwindow* window, double x, double y)
     if (rightDown) {
         if (scene.gamelike_mode == false) {
             scene.tx += dx / 3.0;
-            scene.ty += dy / 3.0;
+            scene.ty -= dy / 3.0;
         }
     }
 

@@ -56,9 +56,9 @@ public:
     float lightSpin, lightTilt, lightDist;
     glm::vec3 lightPos;
     // @@ Perhaps declare additional scene lighting values here. (lightVal, lightAmb)
-    
+    glm::vec3 light, ambient;
 
-
+    int lightingMode = 1;
     int mode; // Extra mode indicator hooked up to number keys and sent to shader
     
     // Viewport

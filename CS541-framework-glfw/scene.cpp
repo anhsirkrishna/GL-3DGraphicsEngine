@@ -106,7 +106,7 @@ Object* FramedPicture(const glm::mat4& modelTr, const int objectId,
     
     glm::vec3 woodColor(87.0/255.0,51.0/255.0,35.0/255.0);
     ob = new Object(BoxPolygons, frameId,
-                    woodColor, glm::vec3(0.2, 0.2, 0.2), 10.0);
+                    woodColor, glm::vec3(0.02, 0.02, 0.02), 0.408); //phong alpha is 10
     frame->add(ob, Translate(0.0, 0.0, 1.0+w)*Scale(1.0, w, w));
     frame->add(ob, Translate(0.0, 0.0, -1.0-w)*Scale(1.0, w, w));
     frame->add(ob, Translate(1.0+w, 0.0, 0.0)*Scale(w, w, 1.0+2*w));
@@ -142,7 +142,8 @@ void Scene::InitializeScene()
     lightTilt = -45.0;
     lightDist = 100.0;
     // @@ Perhaps initialize additional scene lighting values here. (lightVal, lightAmb)
-    
+    light = glm::vec3(3.0, 3.0, 3.0);
+    ambient = glm::vec3(0.2, 0.2, 0.2);
 
     CHECKERROR;
     objectRoot = new Object(NULL, nullId);
@@ -188,8 +189,8 @@ void Scene::InitializeScene()
     glm::vec3 waterColor(0.3, 0.3, 1.0);
 
     glm::vec3 black(0.0, 0.0, 0.0);
-    glm::vec3 brightSpec(0.5, 0.5, 0.5);
-    glm::vec3 polishedSpec(0.3, 0.3, 0.3);
+    glm::vec3 brightSpec(0.05, 0.05, 0.05);
+    glm::vec3 polishedSpec(0.03, 0.03, 0.03);
  
     // Creates all the models from which the scene is composed.  Each
     // is created with a polygon shape (possibly NULL), a
@@ -205,13 +206,13 @@ void Scene::InitializeScene()
     
     central    = new Object(NULL, nullId);
     anim       = new Object(NULL, nullId);
-    room       = new Object(RoomPolygons, roomId, brickColor, black, 1);
-    floor      = new Object(FloorPolygons, floorId, floorColor, black, 1);
-    teapot     = new Object(TeapotPolygons, teapotId, brassColor, brightSpec, 120);
-    podium     = new Object(BoxPolygons, boxId, glm::vec3(woodColor), polishedSpec, 10); 
-    sky        = new Object(SpherePolygons, skyId, black, black, 0);
-    ground     = new Object(GroundPolygons, groundId, grassColor, black, 1);
-    sea        = new Object(SeaPolygons, seaId, waterColor, brightSpec, 120);
+    room       = new Object(RoomPolygons, roomId, brickColor, black, 0.817); //phong alpha = 1
+    floor      = new Object(FloorPolygons, floorId, floorColor, black, 0.817); //phong alpha = 1
+    teapot     = new Object(TeapotPolygons, teapotId, brassColor, brightSpec, 0.128); //phong alpha = 120
+    podium     = new Object(BoxPolygons, boxId, glm::vec3(woodColor), polishedSpec, 0.408); //phong alpha = 10 
+    sky        = new Object(SpherePolygons, skyId, black, black, 1); //phong alpha = 0
+    ground     = new Object(GroundPolygons, groundId, grassColor, black, 0.817); //phong alpha = 1
+    sea        = new Object(SeaPolygons, seaId, waterColor, brightSpec, 0.128); //phong alpha = 120
     leftFrame  = FramedPicture(Identity, lPicId, BoxPolygons, QuadPolygons);
     rightFrame = FramedPicture(Identity, rPicId, BoxPolygons, QuadPolygons); 
     spheres    = SphereOfSpheres(SpherePolygons);
@@ -272,7 +273,14 @@ void Scene::DrawMenu()
             if (ImGui::MenuItem("Draw walls", "", room->drawMe))       {room->drawMe ^= true; }
             if (ImGui::MenuItem("Draw ground/sea", "", ground->drawMe)){ground->drawMe ^= true;}
             ImGui::EndMenu(); }
-                	
+        
+        if (ImGui::BeginMenu("Lighting ")) {
+            if (ImGui::MenuItem("Phong", "", lightingMode == 0)) { lightingMode = 0; }
+            if (ImGui::MenuItem("BRDF", "", lightingMode == 1)) { lightingMode = 1; }
+            if (ImGui::MenuItem("GGX", "", lightingMode == 2)) { lightingMode = 2; }
+            ImGui::EndMenu();
+        }
+
         // This menu demonstrates how to provide the user a choice
         // among a set of choices.  The current choice is stored in a
         // variable named "mode" in the application, and sent to the
@@ -414,7 +422,13 @@ void Scene::DrawScene()
     loc = glGetUniformLocation(programId, "WorldInverse");
     glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(WorldInverse));
     loc = glGetUniformLocation(programId, "lightPos");
-    glUniform3fv(loc, 1, &(lightPos[0]));   
+    glUniform3fv(loc, 1, &(lightPos[0]));
+    loc = glGetUniformLocation(programId, "light");
+    glUniform3fv(loc, 1, &(light[0]));
+    loc = glGetUniformLocation(programId, "ambient");
+    glUniform3fv(loc, 1, &(ambient[0]));
+    loc = glGetUniformLocation(programId, "lightingMode");
+    glUniform1i(loc, lightingMode);
     loc = glGetUniformLocation(programId, "mode");
     glUniform1i(loc, mode);
     CHECKERROR;

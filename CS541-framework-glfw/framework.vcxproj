@@ -133,6 +133,10 @@
   <ItemGroup>
     <Library Include="libs\glfw\lib-vc2019\glfw3.lib" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="lighting.frag" />
+    <None Include="lighting.vert" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
