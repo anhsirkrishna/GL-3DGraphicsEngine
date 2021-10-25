@@ -164,8 +164,21 @@ void Scene::InitializeScene()
     glBindAttribLocation(lightingProgram->programId, 3, "vertexTangent");
     lightingProgram->LinkProgram();
 
+    // Create the shadow shader program from source code files.
+    shadowProgram = new ShaderProgram();
+    shadowProgram->AddShader("shadow.vert", GL_VERTEX_SHADER);
+    shadowProgram->AddShader("shadow.frag", GL_FRAGMENT_SHADER);
 
-    
+    glBindAttribLocation(shadowProgram->programId, 0, "vertex");
+    glBindAttribLocation(shadowProgram->programId, 1, "vertexNormal");
+    glBindAttribLocation(shadowProgram->programId, 2, "vertexTexture");
+    glBindAttribLocation(shadowProgram->programId, 3, "vertexTangent");
+    shadowProgram->LinkProgram();
+
+    //Create the FBO as the render target for the shadow pass
+    shadowPassRenderTarget.CreateFBO(1024, 1024);
+
+
     // Create all the Polygon shapes
     proceduralground = new ProceduralGround(grndSize, 400,
                                      grndOctaves, grndFreq, grndPersistence,
@@ -324,6 +337,7 @@ void Scene::BuildTransforms()
     const float rx = ry * width / height;
     WorldProj = Perspective(rx, ry, front, back);
     WorldView = Translate(tx, ty, zoom) * Rotate(0, tilt - 90) * Rotate(2, spin) * Translate(-1*eye.x, -1*eye.y, -1*eye.z);
+    LightView = LookAt(lightPos, glm::vec3(0, 0, 0), glm::vec3(0, 0, 1));
 
     /*
     WorldProj[0][0]=  2.368;
@@ -396,6 +410,55 @@ void Scene::DrawScene()
 
     CHECKERROR;
     int loc, programId;
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Shadow pass
+    ////////////////////////////////////////////////////////////////////////////////
+
+    // Choose the shadow shader
+    shadowProgram->Use();
+    programId = shadowProgram->programId;
+
+    // Set the viewport, and clear the screen
+    shadowPassRenderTarget.Bind();
+    glViewport(0, 0, width, height);
+    glClearColor(0.5, 0.5, 0.5, 1.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+    // @@ The scene specific parameters (uniform variables) used by
+    // the shader are set here.  Object specific parameters are set in
+    // the Draw procedure in object.cpp
+
+    loc = glGetUniformLocation(programId, "WorldProj");
+    glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(WorldProj));
+    loc = glGetUniformLocation(programId, "WorldView");
+    glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(LightView));
+    loc = glGetUniformLocation(programId, "WorldInverse");
+    glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(WorldInverse));
+    loc = glGetUniformLocation(programId, "lightPos");
+    glUniform3fv(loc, 1, &(lightPos[0]));
+    loc = glGetUniformLocation(programId, "light");
+    glUniform3fv(loc, 1, &(light[0]));
+    loc = glGetUniformLocation(programId, "ambient");
+    glUniform3fv(loc, 1, &(ambient[0]));
+    loc = glGetUniformLocation(programId, "lightingMode");
+    glUniform1i(loc, lightingMode);
+    loc = glGetUniformLocation(programId, "mode");
+    glUniform1i(loc, mode);
+    CHECKERROR;
+
+    // Draw all objects (This recursively traverses the object hierarchy.)
+    objectRoot->Draw(shadowProgram, Identity);
+    CHECKERROR;
+
+    shadowPassRenderTarget.Unbind();
+    // Turn off the shader
+    shadowProgram->Unuse();
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // End of Shadow pass
+    ////////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////////
     // Lighting pass

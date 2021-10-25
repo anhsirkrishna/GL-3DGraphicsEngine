@@ -65,7 +65,7 @@ public:
     int width, height;
 
     // Transformations
-    glm::mat4 WorldProj, WorldView, WorldInverse;
+    glm::mat4 WorldProj, WorldView, WorldInverse, LightView;
 
     // All objects in the scene are children of this single root object.
     Object* objectRoot;
@@ -77,8 +77,11 @@ public:
 
     // Shader programs
     ShaderProgram* lightingProgram;
+    ShaderProgram* shadowProgram;
     // @@ Declare additional shaders if necessary
 
+    //FBO decleration
+    FBO shadowPassRenderTarget;
 
     // Options menu stuff
     bool show_demo_window;
