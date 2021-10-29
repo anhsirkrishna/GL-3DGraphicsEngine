@@ -61,11 +61,13 @@ public:
     int lightingMode = 1;
     int mode; // Extra mode indicator hooked up to number keys and sent to shader
     
+    int debug_mode = 0;
+
     // Viewport
     int width, height;
 
     // Transformations
-    glm::mat4 WorldProj, WorldView, WorldInverse, LightView;
+    glm::mat4 WorldProj, WorldView, WorldInverse, LightView, LightProj;
 
     // All objects in the scene are children of this single root object.
     Object* objectRoot;
@@ -82,6 +84,9 @@ public:
 
     //FBO decleration
     FBO shadowPassRenderTarget;
+    int fbo_width, fbo_height;
+
+    glm::mat4 BMatrix, ShadowMatrix;
 
     // Options menu stuff
     bool show_demo_window;

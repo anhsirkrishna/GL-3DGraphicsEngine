@@ -100,8 +100,8 @@ glm::mat4 LookAt(const glm::vec3 Eye, const glm::vec3 Center, const glm::vec3 Up
     glm::vec3 V, A, B;
     glm::mat4 rotMat;
     V = glm::normalize(Center - Eye);
-    A = glm::normalize(V * Up);
-    B = A * V;
+    A = glm::normalize(glm::cross(V, Up));
+    B = glm::cross(A, V);
 
     rotMat[0].x = A.x;
     rotMat[1].x = A.y;
@@ -117,5 +117,5 @@ glm::mat4 LookAt(const glm::vec3 Eye, const glm::vec3 Center, const glm::vec3 Up
 
     rotMat[3].w = 1;
 
-    return Translate(-Eye.x, -Eye.y, -Eye.z) * rotMat;
+    return rotMat * Translate(-Eye.x, -Eye.y, -Eye.z);
 }

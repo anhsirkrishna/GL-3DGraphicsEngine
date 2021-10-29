@@ -7,15 +7,9 @@ out vec4 FragColor;
 
 const float PI = 3.14159f;
 
-in vec3 normalVec, lightVec, eyeVec;
-in vec2 texCoord;
 in vec4 position;
 
-uniform int objectId;
-uniform int lightingMode;
-uniform vec3 diffuse, specular;
-uniform float shininess;
-uniform vec3 light, ambient;
+uniform int debugMode;
 
 void main()
 {

@@ -27,12 +27,16 @@ const float PI = 3.14159f;
 
 in vec3 normalVec, lightVec, eyeVec;
 in vec2 texCoord;
+in vec4 shadowCoord;
 
 uniform int objectId;
 uniform int lightingMode;
 uniform vec3 diffuse, specular;
 uniform float shininess;
 uniform vec3 light, ambient;
+uniform int width, height;
+
+uniform sampler2D shadowMap;
 
 void main()
 {
@@ -43,6 +47,19 @@ void main()
 
     vec3 Kd = diffuse;   
     float alpha;
+    float light_depth, pixel_depth;
+    vec2 shadowIndex;
+    if (shadowCoord.w > 0){
+        shadowIndex = shadowCoord.xy/shadowCoord.w;
+    }
+    pixel_depth = 0;
+    light_depth = 1000;
+    if (shadowIndex.x >= 0 && shadowIndex.x <= 1){
+        if (shadowIndex.y >= 0 && shadowIndex.y <= 1){
+            light_depth = texture2D(shadowMap, shadowIndex).w;
+            pixel_depth = shadowCoord.w;
+        }
+    }
     // A checkerboard pattern to break up larte flat expanses.  Remove when using textures.
     if (objectId==groundId || objectId==floorId || objectId==seaId) {
         ivec2 uv = ivec2(floor(100.0*texCoord));
@@ -54,7 +71,10 @@ void main()
     float LH = max(dot(L, H), 0.0);
     if (lightingMode == Phong_M){
         alpha = -2 + (2/(shininess*shininess));
-        FragColor.xyz = ambient*Kd + light*(Kd/PI)*LN + light*(specular*10)*pow(NH, alpha); 
+        if (pixel_depth > (light_depth + 0.01))
+            FragColor.xyz = ambient*Kd;
+        else
+            FragColor.xyz = ambient*Kd + light*(Kd/PI)*LN + light*(specular*10)*pow(NH, alpha);
         //specular value coming in is for BRDF so adjust for Phong by multiplying by 10
     }
     else {
@@ -74,6 +94,9 @@ void main()
         }
 
         brdf = (Kd/PI) + ((fresnel*visibility*distribution)/4);
-        FragColor.xyz = ambient*Kd + light*LN*brdf; 
+        if (pixel_depth > (light_depth + 0.01))
+            FragColor.xyz = ambient*Kd;
+        else
+            FragColor.xyz = ambient*Kd + light*LN*brdf;
     }
 }
