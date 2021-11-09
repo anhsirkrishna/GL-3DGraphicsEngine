@@ -3,8 +3,6 @@
 ////////////////////////////////////////////////////////////////////////
 #version 330
 
-out vec4 FragColor;
-
 // These definitions agree with the ObjectIds enum in scene.h
 const int     nullId	= 0;
 const int     skyId	= 1;
@@ -38,12 +36,14 @@ uniform int width, height;
 
 uniform sampler2D shadowMap;
 
-void main()
+vec3 LightingPixel()
 {
     vec3 N = normalize(normalVec);
     vec3 L = normalize(lightVec);
     vec3 V = normalize(eyeVec);
     vec3 H = normalize(L+V);
+
+	vec3 returnColor;
 
     vec3 Kd = diffuse;   
     float alpha;
@@ -72,9 +72,9 @@ void main()
     if (lightingMode == Phong_M){
         alpha = -2 + (2/(shininess*shininess));
         if (pixel_depth > (light_depth + 0.01))
-            FragColor.xyz = ambient*Kd;
+            returnColor = ambient*Kd;
         else
-            FragColor.xyz = ambient*Kd + light*(Kd/PI)*LN + light*(specular*10)*pow(NH, alpha);
+            returnColor = ambient*Kd + light*(Kd/PI)*LN + light*(specular*10)*pow(NH, alpha);
         //specular value coming in is for BRDF so adjust for Phong by multiplying by 10
     }
     else {
@@ -95,8 +95,10 @@ void main()
 
         brdf = (Kd/PI) + ((fresnel*visibility*distribution)/4);
         if (pixel_depth > (light_depth + 0.01))
-            FragColor.xyz = ambient*Kd;
+            returnColor = ambient*Kd;
         else
-            FragColor.xyz = ambient*Kd + light*LN*brdf;
+            returnColor = ambient*Kd + light*LN*brdf;
     }
+
+	return returnColor;
 }

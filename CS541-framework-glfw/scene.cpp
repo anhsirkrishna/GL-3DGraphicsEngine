@@ -158,8 +158,10 @@ void Scene::InitializeScene()
     // Create the lighting shader program from source code files.
     // @@ Initialize additional shaders if necessary
     lightingProgram = new ShaderProgram();
-    lightingProgram->AddShader("lighting.vert", GL_VERTEX_SHADER);
-    lightingProgram->AddShader("lighting.frag", GL_FRAGMENT_SHADER);
+    lightingProgram->AddShader("final.vert", GL_VERTEX_SHADER);
+	lightingProgram->AddShader("final.frag", GL_FRAGMENT_SHADER);
+	lightingProgram->AddShader("lighting.vert", GL_VERTEX_SHADER);
+	lightingProgram->AddShader("lighting.frag", GL_FRAGMENT_SHADER);
 
     glBindAttribLocation(lightingProgram->programId, 0, "vertex");
     glBindAttribLocation(lightingProgram->programId, 1, "vertexNormal");
