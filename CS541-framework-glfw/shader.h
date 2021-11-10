@@ -11,6 +11,7 @@ class ShaderProgram
 {
 public:
     int programId;
+	bool isReflectionShader;
     
     ShaderProgram();
     void AddShader(const char* fileName, const GLenum type);

@@ -58,7 +58,10 @@ public:
     // @@ Perhaps declare additional scene lighting values here. (lightVal, lightAmb)
     glm::vec3 light, ambient;
 
+	glm::vec3 reflectionEye;
+
     int lightingMode = 1;
+	int reflectionMode = 1;
     int mode; // Extra mode indicator hooked up to number keys and sent to shader
     
     int debug_mode = 0;
@@ -80,10 +83,11 @@ public:
     // Shader programs
     ShaderProgram* lightingProgram;
     ShaderProgram* shadowProgram;
+	ShaderProgram* reflectionProgram;
     // @@ Declare additional shaders if necessary
 
     //FBO decleration
-    FBO shadowPassRenderTarget;
+    FBO shadowPassRenderTarget, upperReflectionRenderTarget, lowerReflectionRenderTarget;
     int fbo_width, fbo_height;
 
     glm::mat4 BMatrix, ShadowMatrix;

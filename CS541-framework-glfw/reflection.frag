@@ -1,15 +1,10 @@
 /////////////////////////////////////////////////////////////////////////
-// Pixel shader for lighting
+// Pixel shader for reflection shader
 ////////////////////////////////////////////////////////////////////////
 #version 330
 
-const float PI = 3.14159f;
-
-in vec4 position;
-
-uniform int debugMode;
-
+vec3 LightingPixel();
 void main()
 {
-    gl_FragData[0] = position;
+    gl_FragData[0].xyz = LightingPixel();
 }

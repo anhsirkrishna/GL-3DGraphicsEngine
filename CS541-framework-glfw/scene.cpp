@@ -185,6 +185,24 @@ void Scene::InitializeScene()
     fbo_height = 1024;
     shadowPassRenderTarget.CreateFBO(fbo_width, fbo_height);
 
+	// Create the reflection shader program 
+	reflectionProgram = new ShaderProgram();
+	reflectionProgram->AddShader("reflection.vert", GL_VERTEX_SHADER);
+	reflectionProgram->AddShader("reflection.frag", GL_FRAGMENT_SHADER);
+	reflectionProgram->AddShader("lighting.vert", GL_VERTEX_SHADER);
+	reflectionProgram->AddShader("lighting.frag", GL_FRAGMENT_SHADER);
+
+	glBindAttribLocation(reflectionProgram->programId, 0, "vertex");
+	glBindAttribLocation(reflectionProgram->programId, 1, "vertexNormal");
+	glBindAttribLocation(reflectionProgram->programId, 2, "vertexTexture");
+	glBindAttribLocation(reflectionProgram->programId, 3, "vertexTangent");
+	reflectionProgram->LinkProgram();
+	reflectionProgram->isReflectionShader = true;
+
+	//Create the two FBOs require for reflection, one for each parabaloid
+	upperReflectionRenderTarget.CreateFBO(fbo_width, fbo_height);
+	lowerReflectionRenderTarget.CreateFBO(fbo_width, fbo_height);
+
 
     // Create all the Polygon shapes
     proceduralground = new ProceduralGround(grndSize, 400,
@@ -228,7 +246,8 @@ void Scene::InitializeScene()
     anim       = new Object(NULL, nullId);
     room       = new Object(RoomPolygons, roomId, brickColor, black, 0.817); //phong alpha = 1
     floor      = new Object(FloorPolygons, floorId, floorColor, black, 0.817); //phong alpha = 1
-    teapot     = new Object(TeapotPolygons, teapotId, brassColor, brightSpec, 0.128); //phong alpha = 120
+    teapot     = new Object(TeapotPolygons, teapotId, brassColor, brightSpec, 0.128, true); //phong alpha = 120 | Reflective set to true
+	reflectionEye = glm::vec3(0, 0, 1.5);
     podium     = new Object(BoxPolygons, boxId, glm::vec3(woodColor), polishedSpec, 0.408); //phong alpha = 10 
     sky        = new Object(SpherePolygons, skyId, black, black, 1); //phong alpha = 0
     ground     = new Object(GroundPolygons, groundId, grassColor, black, 0.817); //phong alpha = 1
@@ -300,6 +319,13 @@ void Scene::DrawMenu()
             if (ImGui::MenuItem("GGX", "", lightingMode == 2)) { lightingMode = 2; }
             ImGui::EndMenu();
         }
+
+		if (ImGui::BeginMenu("Reflection ")) {
+			if (ImGui::MenuItem("Mirror", "", reflectionMode == 0)) { reflectionMode = 0; }
+			if (ImGui::MenuItem("Color", "", reflectionMode == 1)) { reflectionMode = 1; }
+			if (ImGui::MenuItem("Off", "", reflectionMode == 2)) { reflectionMode = 2; }
+			ImGui::EndMenu();
+		}
 
         // This menu demonstrates how to provide the user a choice
         // among a set of choices.  The current choice is stored in a
@@ -461,6 +487,114 @@ void Scene::DrawScene()
     // End of Shadow pass
     ////////////////////////////////////////////////////////////////////////////////
 
+	////////////////////////////////////////////////////////////////////////////////
+	// Reflection pass 1
+	////////////////////////////////////////////////////////////////////////////////
+	int hemisphereSign = -1;
+
+	// Choose the reflection shader
+	reflectionProgram->Use();
+	programId = reflectionProgram->programId;
+
+	glActiveTexture(GL_TEXTURE2); // Activate texture unit 2
+	glBindTexture(GL_TEXTURE_2D, shadowPassRenderTarget.textureID); // Load texture into it
+	CHECKERROR;
+	loc = glGetUniformLocation(reflectionProgram->programId, "shadowMap");
+	glUniform1i(loc, 2); // Tell shader texture is in unit 2
+	CHECKERROR;
+
+	// Set the viewport, and clear the screen
+	//glViewport(0, 0, fbo_width, fbo_height);
+	glViewport(0, 0, width, height);
+	//shadowPassRenderTarget.Bind();
+	glClearColor(0.5, 0.5, 0.5, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+	// @@ The scene specific parameters (uniform variables) used by
+	// the shader are set here.  Object specific parameters are set in
+	// the Draw procedure in object.cpp
+
+	loc = glGetUniformLocation(programId, "ReflectionEye");
+	glUniform3fv(loc, 1, &(reflectionEye[0]));
+	loc = glGetUniformLocation(programId, "HemisphereSign");
+	glUniform1i(loc, hemisphereSign);
+	loc = glGetUniformLocation(programId, "LightView");
+	glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(LightView));
+	loc = glGetUniformLocation(programId, "ShadowMatrix");
+	glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(ShadowMatrix));
+	loc = glGetUniformLocation(programId, "lightPos");
+	glUniform3fv(loc, 1, &(lightPos[0]));
+	loc = glGetUniformLocation(programId, "light");
+	glUniform3fv(loc, 1, &(light[0]));
+	loc = glGetUniformLocation(programId, "ambient");
+	glUniform3fv(loc, 1, &(ambient[0]));
+	loc = glGetUniformLocation(programId, "lightingMode");
+	glUniform1i(loc, lightingMode);
+	loc = glGetUniformLocation(programId, "mode");
+	glUniform1i(loc, mode);
+	loc = glGetUniformLocation(programId, "width");
+	glUniform1i(loc, width);
+	loc = glGetUniformLocation(programId, "height");
+	glUniform1i(loc, height);
+	CHECKERROR;
+
+	// Draw all objects (This recursively traverses the object hierarchy.)
+	objectRoot->Draw(reflectionProgram, Identity);
+	CHECKERROR;
+	//shadowPassRenderTarget.Unbind();
+	// Turn off the shader
+	reflectionProgram->Unuse();
+
+	return;
+	////////////////////////////////////////////////////////////////////////////////
+	// End of reflection pass 1
+	////////////////////////////////////////////////////////////////////////////////
+
+	////////////////////////////////////////////////////////////////////////////////
+	// Reflection pass 2
+	////////////////////////////////////////////////////////////////////////////////
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_FRONT);
+
+	// Choose the shadow shader
+	reflectionProgram->Use();
+	programId = reflectionProgram->programId;
+
+	// Set the viewport, and clear the screen
+	glViewport(0, 0, fbo_width, fbo_height);
+	shadowPassRenderTarget.Bind();
+	glClearColor(0.5, 0.5, 0.5, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+	// @@ The scene specific parameters (uniform variables) used by
+	// the shader are set here.  Object specific parameters are set in
+	// the Draw procedure in object.cpp
+
+	loc = glGetUniformLocation(programId, "WorldProj");
+	glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(LightProj));
+	loc = glGetUniformLocation(programId, "LightView");
+	glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(LightView));
+	loc = glGetUniformLocation(programId, "debugMode");
+	glUniform1i(loc, debug_mode);
+	CHECKERROR;
+
+	// Draw all objects (This recursively traverses the object hierarchy.)
+	objectRoot->Draw(reflectionProgram, Identity);
+	CHECKERROR;
+	shadowPassRenderTarget.Unbind();
+	// Turn off the shader
+	reflectionProgram->Unuse();
+	glDisable(GL_CULL_FACE);
+	////////////////////////////////////////////////////////////////////////////////
+	// End of Reflection pass 2
+	////////////////////////////////////////////////////////////////////////////////
+
+	////////////////////////////////////////////////////////////////////////////////
+	// Lighting pass
+	////////////////////////////////////////////////////////////////////////////////
+
     // Choose the lighting shader
     lightingProgram->Use();
     programId = lightingProgram->programId;
@@ -471,9 +605,6 @@ void Scene::DrawScene()
     loc = glGetUniformLocation(lightingProgram->programId, "shadowMap");
     glUniform1i(loc, 2); // Tell shader texture is in unit 2
     CHECKERROR;
-    ////////////////////////////////////////////////////////////////////////////////
-    // Lighting pass
-    ////////////////////////////////////////////////////////////////////////////////
 
     // Set the viewport, and clear the screen
     glViewport(0, 0, width, height);

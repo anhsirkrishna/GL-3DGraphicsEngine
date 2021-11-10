@@ -37,6 +37,7 @@ char* ReadFile(const char* name)
 ShaderProgram::ShaderProgram()
 { 
     programId = glCreateProgram();
+	isReflectionShader = false;
 }
 
 // Use a shader program

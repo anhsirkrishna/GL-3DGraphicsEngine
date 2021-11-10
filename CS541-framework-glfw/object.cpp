@@ -30,9 +30,10 @@ using namespace gl;
 
 
 Object::Object(Shape* _shape, const int _objectId,
-               const glm::vec3 _diffuseColor, const glm::vec3 _specularColor, const float _shininess)
+               const glm::vec3 _diffuseColor, const glm::vec3 _specularColor, const float _shininess,
+			   const bool _reflective)
     : diffuseColor(_diffuseColor), specularColor(_specularColor), shininess(_shininess),
-      shape(_shape), objectId(_objectId), drawMe(true)
+      shape(_shape), objectId(_objectId), drawMe(true), reflective(_reflective)
      
 {}
 
@@ -46,6 +47,10 @@ void Object::Draw(ShaderProgram* program, glm::mat4& objectTr)
     // @@ Textures, being uniform sampler2d variables in the shader,
     // are also set here.  Call texture->Bind in texture.cpp to do so.
     
+	//Check if we are in the reflection pass and drawing a reflective object
+	if (program->isReflectionShader && reflective)
+		return;
+
     // Inform the shader of the surface values Kd, Ks, and alpha.
     int loc = glGetUniformLocation(program->programId, "diffuse");
     glUniform3fv(loc, 1, &diffuseColor[0]);
