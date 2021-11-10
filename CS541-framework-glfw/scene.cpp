@@ -245,6 +245,7 @@ void Scene::InitializeScene()
     central    = new Object(NULL, nullId);
     anim       = new Object(NULL, nullId);
     room       = new Object(RoomPolygons, roomId, brickColor, black, 0.817); //phong alpha = 1
+	room->drawMe = false;
     floor      = new Object(FloorPolygons, floorId, floorColor, black, 0.817); //phong alpha = 1
     teapot     = new Object(TeapotPolygons, teapotId, brassColor, brightSpec, 0.128, true); //phong alpha = 120 | Reflective set to true
 	reflectionEye = glm::vec3(0, 0, 1.5);
@@ -490,7 +491,7 @@ void Scene::DrawScene()
 	////////////////////////////////////////////////////////////////////////////////
 	// Reflection pass 1
 	////////////////////////////////////////////////////////////////////////////////
-	int hemisphereSign = -1;
+	int hemisphereSign = 1;
 
 	// Choose the reflection shader
 	reflectionProgram->Use();
@@ -504,9 +505,8 @@ void Scene::DrawScene()
 	CHECKERROR;
 
 	// Set the viewport, and clear the screen
-	//glViewport(0, 0, fbo_width, fbo_height);
-	glViewport(0, 0, width, height);
-	//shadowPassRenderTarget.Bind();
+	glViewport(0, 0, fbo_width, fbo_height);
+	upperReflectionRenderTarget.Bind();
 	glClearColor(0.5, 0.5, 0.5, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -542,11 +542,9 @@ void Scene::DrawScene()
 	// Draw all objects (This recursively traverses the object hierarchy.)
 	objectRoot->Draw(reflectionProgram, Identity);
 	CHECKERROR;
-	//shadowPassRenderTarget.Unbind();
+	upperReflectionRenderTarget.Unbind();
 	// Turn off the shader
-	reflectionProgram->Unuse();
 
-	return;
 	////////////////////////////////////////////////////////////////////////////////
 	// End of reflection pass 1
 	////////////////////////////////////////////////////////////////////////////////
@@ -554,39 +552,24 @@ void Scene::DrawScene()
 	////////////////////////////////////////////////////////////////////////////////
 	// Reflection pass 2
 	////////////////////////////////////////////////////////////////////////////////
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_FRONT);
-
-	// Choose the shadow shader
-	reflectionProgram->Use();
-	programId = reflectionProgram->programId;
+	hemisphereSign = -1;
 
 	// Set the viewport, and clear the screen
 	glViewport(0, 0, fbo_width, fbo_height);
-	shadowPassRenderTarget.Bind();
+	lowerReflectionRenderTarget.Bind();
 	glClearColor(0.5, 0.5, 0.5, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-
-	// @@ The scene specific parameters (uniform variables) used by
-	// the shader are set here.  Object specific parameters are set in
-	// the Draw procedure in object.cpp
-
-	loc = glGetUniformLocation(programId, "WorldProj");
-	glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(LightProj));
-	loc = glGetUniformLocation(programId, "LightView");
-	glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(LightView));
-	loc = glGetUniformLocation(programId, "debugMode");
-	glUniform1i(loc, debug_mode);
+	loc = glGetUniformLocation(programId, "HemisphereSign");
+	glUniform1i(loc, hemisphereSign);
 	CHECKERROR;
 
 	// Draw all objects (This recursively traverses the object hierarchy.)
 	objectRoot->Draw(reflectionProgram, Identity);
 	CHECKERROR;
-	shadowPassRenderTarget.Unbind();
+	lowerReflectionRenderTarget.Unbind();
 	// Turn off the shader
 	reflectionProgram->Unuse();
-	glDisable(GL_CULL_FACE);
 	////////////////////////////////////////////////////////////////////////////////
 	// End of Reflection pass 2
 	////////////////////////////////////////////////////////////////////////////////
