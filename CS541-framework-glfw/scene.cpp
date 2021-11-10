@@ -225,6 +225,7 @@ void Scene::InitializeScene()
     glm::vec3 brassColor(0.5, 0.5, 0.1);
     glm::vec3 grassColor(62.0/255.0, 102.0/255.0, 38.0/255.0);
     glm::vec3 waterColor(0.3, 0.3, 1.0);
+    glm::vec3 skyColor(133.0 / 255.0, 222.0 / 255.0, 255.0 / 255.0);
 
     glm::vec3 black(0.0, 0.0, 0.0);
     glm::vec3 brightSpec(0.05, 0.05, 0.05);
@@ -323,8 +324,9 @@ void Scene::DrawMenu()
 
 		if (ImGui::BeginMenu("Reflection ")) {
 			if (ImGui::MenuItem("Mirror", "", reflectionMode == 0)) { reflectionMode = 0; }
-			if (ImGui::MenuItem("Color", "", reflectionMode == 1)) { reflectionMode = 1; }
-			if (ImGui::MenuItem("Off", "", reflectionMode == 2)) { reflectionMode = 2; }
+			if (ImGui::MenuItem("Mixed Color BRDF", "", reflectionMode == 1)) { reflectionMode = 1; }
+            if (ImGui::MenuItem("Mixed Color Simple", "", reflectionMode == 2)) { reflectionMode = 2; }
+			if (ImGui::MenuItem("Off", "", reflectionMode == 3)) { reflectionMode = 3; }
 			ImGui::EndMenu();
 		}
 
@@ -588,6 +590,17 @@ void Scene::DrawScene()
     loc = glGetUniformLocation(lightingProgram->programId, "shadowMap");
     glUniform1i(loc, 2); // Tell shader texture is in unit 2
     CHECKERROR;
+    glActiveTexture(GL_TEXTURE3); // Activate texture unit 3
+    glBindTexture(GL_TEXTURE_2D, upperReflectionRenderTarget.textureID); // Load texture into it
+    CHECKERROR;
+    loc = glGetUniformLocation(lightingProgram->programId, "upperReflectionMap");
+    glUniform1i(loc, 3); // Tell shader texture is in unit 2
+    CHECKERROR;
+    glActiveTexture(GL_TEXTURE4); // Activate texture unit 4
+    glBindTexture(GL_TEXTURE_2D, lowerReflectionRenderTarget.textureID); // Load texture into it
+    CHECKERROR;
+    loc = glGetUniformLocation(lightingProgram->programId, "lowerReflectionMap");
+    glUniform1i(loc, 4); // Tell shader texture is in unit 2
 
     // Set the viewport, and clear the screen
     glViewport(0, 0, width, height);
@@ -617,6 +630,8 @@ void Scene::DrawScene()
     glUniform3fv(loc, 1, &(ambient[0]));
     loc = glGetUniformLocation(programId, "lightingMode");
     glUniform1i(loc, lightingMode);
+    loc = glGetUniformLocation(programId, "reflectionMode");
+    glUniform1i(loc, reflectionMode);
     loc = glGetUniformLocation(programId, "mode");
     glUniform1i(loc, mode);
     loc = glGetUniformLocation(programId, "width");

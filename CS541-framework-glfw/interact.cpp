@@ -188,11 +188,11 @@ void Scroll(GLFWwindow* window, double x, double y)
 
         
     else if (y>0.0) {
-        scene.zoom += 5.0;
+        scene.zoom += 2.0;
     }
 
     else if (y<0.0) {
-        scene.zoom -= 5.0;
+        scene.zoom -= 2.0;
     }
 }
 

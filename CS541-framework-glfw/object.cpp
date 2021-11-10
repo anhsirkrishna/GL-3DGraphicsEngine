@@ -76,6 +76,10 @@ void Object::Draw(ShaderProgram* program, glm::mat4& objectTr)
     loc = glGetUniformLocation(program->programId, "NormalTr");
     glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(inv));
 
+    // Inform the shader if this object is reflective or not
+    loc = glGetUniformLocation(program->programId, "reflective");
+    glUniform1i(loc, reflective);
+
     // If this object has an associated texture, this is the place to
     // load the texture into a texture-unit of your choice and inform
     // the shader program of the texture-unit number.  See
