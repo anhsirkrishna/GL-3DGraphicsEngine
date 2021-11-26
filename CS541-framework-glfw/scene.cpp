@@ -96,7 +96,7 @@ Object* SphereOfSpheres(Shape* SpherePolygons)
 ////////////////////////////////////////////////////////////////////////
 // Constructs a -1...+1  quad (canvas) framed by four (elongated) boxes
 Object* FramedPicture(const glm::mat4& modelTr, const int objectId, 
-                      Shape* BoxPolygons, Shape* QuadPolygons)
+                      Shape* BoxPolygons, Shape* QuadPolygons, int textureId)
 {
     // This draws the frame as four (elongated) boxes of size +-1.0
     float w = 0.05;             // Width of frame boards.
@@ -113,7 +113,7 @@ Object* FramedPicture(const glm::mat4& modelTr, const int objectId,
     frame->add(ob, Translate(-1.0-w, 0.0, 0.0)*Scale(w, w, 1.0+2*w));
 
     ob = new Object(QuadPolygons, objectId,
-                    woodColor, glm::vec3(0.0, 0.0, 0.0), 10.0);
+                    woodColor, glm::vec3(0.0, 0.0, 0.0), 0.408, false, textureId); //phong alpha is 10
     frame->add(ob, Rotate(0,90));
 
     return frame;
@@ -243,19 +243,35 @@ void Scene::InitializeScene()
     // @@ To change an object's surface parameters (Kd, Ks, or alpha),
     // modify the following lines.
     
+    // Grass texture from https://opengameart.org/content/tileable-dirt-textures
+    Texture grassTexture(".\\textures\\Dirt_01.jpg", true);
+
+    //Crate texture from https://opengameart.org/content/3-crate-textures-w-bump-normal
+    Texture crateTexture(".\\textures\\crate1_diffuse.jpg", false);
+
+    //Floor texture from https://opengameart.org/content/117-stone-wall-tilable-textures-in-8-themes
+    Texture floorTexture(".\\textures\\Tileable6.jpg", true);
+
+    //Wall texture from https://opengameart.org/content/pixars-textures
+    Texture wallTexture(".\\textures\\Black_glazed_tile_pxr128.jpg");
+
+    //Teapot texture from https://opengameart.org/content/rusted-metal-texture-pack
+    Texture teapotTexture(".\\textures\\metall010-new-tileable-bar.jpg");
+
+    Texture gooseTexture(".\\textures\\goose.jpg");
+
     central    = new Object(NULL, nullId);
     anim       = new Object(NULL, nullId);
-    room       = new Object(RoomPolygons, roomId, brickColor, black, 0.817); //phong alpha = 1
-	room->drawMe = false;
-    floor      = new Object(FloorPolygons, floorId, floorColor, black, 0.817); //phong alpha = 1
-    teapot     = new Object(TeapotPolygons, teapotId, brassColor, brightSpec, 0.128, true); //phong alpha = 120 | Reflective set to true
+    room       = new Object(RoomPolygons, roomId, brickColor, black, 0.817, false, wallTexture.textureId); //phong alpha = 1
+    floor      = new Object(FloorPolygons, floorId, floorColor, black, 0.817, false, floorTexture.textureId); //phong alpha = 1
+    teapot     = new Object(TeapotPolygons, teapotId, brassColor, brightSpec, 0.128, true, teapotTexture.textureId); //phong alpha = 120 | Reflective set to true
 	reflectionEye = glm::vec3(0, 0, 1.5);
-    podium     = new Object(BoxPolygons, boxId, glm::vec3(woodColor), polishedSpec, 0.408); //phong alpha = 10 
+    podium     = new Object(BoxPolygons, boxId, glm::vec3(woodColor), polishedSpec, 0.408, false, crateTexture.textureId); //phong alpha = 10 
     sky        = new Object(SpherePolygons, skyId, black, black, 1); //phong alpha = 0
-    ground     = new Object(GroundPolygons, groundId, grassColor, black, 0.817); //phong alpha = 1
+    ground     = new Object(GroundPolygons, groundId, grassColor, black, 0.817, false, grassTexture.textureId); //phong alpha = 1
     sea        = new Object(SeaPolygons, seaId, waterColor, brightSpec, 0.128); //phong alpha = 120
-    leftFrame  = FramedPicture(Identity, lPicId, BoxPolygons, QuadPolygons);
-    rightFrame = FramedPicture(Identity, rPicId, BoxPolygons, QuadPolygons); 
+    leftFrame  = FramedPicture(Identity, lPicId, BoxPolygons, QuadPolygons, gooseTexture.textureId);
+    rightFrame = FramedPicture(Identity, rPicId, BoxPolygons, QuadPolygons, gooseTexture.textureId);
     spheres    = SphereOfSpheres(SpherePolygons);
 #ifdef REFL
     spheres->drawMe = true;
@@ -302,7 +318,7 @@ void Scene::InitializeScene()
 
     p_sky_dome_cage = new Texture(".\\textures\\cages.jpg");
     p_sky_dome = new Texture(".\\textures\\Sky-049.jpg");
-    p_sky_dome_night = new Texture(".\\textures\\core.bmp");
+    p_sky_dome_night = new Texture(".\\textures\\core.jpg");
 }
 
 void Scene::DrawMenu()
@@ -515,22 +531,22 @@ void Scene::DrawScene()
     switch (sky_dome_mode)
     {
     case 0:
-        p_sky_dome->Bind(0, programId, "SkydomeTex");
+        p_sky_dome->Bind(13, programId, "SkydomeTex");
         break;
     case 1:
-        p_sky_dome_night->Bind(0, programId, "SkydomeTex");
+        p_sky_dome_night->Bind(13, programId, "SkydomeTex");
         break;
     case 2:
-        p_sky_dome_cage->Bind(0, programId, "SkydomeTex");
+        p_sky_dome_cage->Bind(13, programId, "SkydomeTex");
         break;
     }
     CHECKERROR;
 
-	glActiveTexture(GL_TEXTURE10); // Activate texture unit 10
+	glActiveTexture(GL_TEXTURE15); // Activate texture unit 15
 	glBindTexture(GL_TEXTURE_2D, shadowPassRenderTarget.textureID); // Load texture into it
 	CHECKERROR;
 	loc = glGetUniformLocation(reflectionProgram->programId, "shadowMap");
-	glUniform1i(loc, 10); // Tell shader texture is in unit 2
+	glUniform1i(loc, 15); // Tell shader texture is in unit 15
 	CHECKERROR;
 
 	// Set the viewport, and clear the screen
@@ -618,34 +634,34 @@ void Scene::DrawScene()
     switch (sky_dome_mode)
     {
     case 0 :
-        p_sky_dome->Bind(0, programId, "SkydomeTex");
+        p_sky_dome->Bind(13, programId, "SkydomeTex");
         break;
     case 1:
-        p_sky_dome_night->Bind(0, programId, "SkydomeTex");
+        p_sky_dome_night->Bind(13, programId, "SkydomeTex");
         break;
     case 2:
-        p_sky_dome_cage->Bind(0, programId, "SkydomeTex");
+        p_sky_dome_cage->Bind(13, programId, "SkydomeTex");
         break;
     }
     CHECKERROR;
 
-    glActiveTexture(GL_TEXTURE10); // Activate texture unit 10
+    glActiveTexture(GL_TEXTURE15); // Activate texture unit 15
     glBindTexture(GL_TEXTURE_2D, shadowPassRenderTarget.textureID); // Load texture into it
     CHECKERROR;
     loc = glGetUniformLocation(lightingProgram->programId, "shadowMap");
-    glUniform1i(loc, 10); // Tell shader texture is in unit 10
+    glUniform1i(loc, 15); // Tell shader texture is in unit 15
     CHECKERROR;
-    glActiveTexture(GL_TEXTURE11); // Activate texture unit 11
+    glActiveTexture(GL_TEXTURE16); // Activate texture unit 16
     glBindTexture(GL_TEXTURE_2D, upperReflectionRenderTarget.textureID); // Load texture into it
     CHECKERROR;
     loc = glGetUniformLocation(lightingProgram->programId, "upperReflectionMap");
-    glUniform1i(loc, 11); // Tell shader texture is in unit 11
+    glUniform1i(loc, 16); // Tell shader texture is in unit 16
     CHECKERROR;
-    glActiveTexture(GL_TEXTURE12); // Activate texture unit 12
+    glActiveTexture(GL_TEXTURE17); // Activate texture unit 17
     glBindTexture(GL_TEXTURE_2D, lowerReflectionRenderTarget.textureID); // Load texture into it
     CHECKERROR;
     loc = glGetUniformLocation(lightingProgram->programId, "lowerReflectionMap");
-    glUniform1i(loc, 12); // Tell shader texture is in unit 12
+    glUniform1i(loc, 17); // Tell shader texture is in unit 17
 
     // Set the viewport, and clear the screen
     glViewport(0, 0, width, height);

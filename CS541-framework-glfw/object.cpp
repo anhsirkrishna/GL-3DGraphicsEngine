@@ -87,11 +87,11 @@ void Object::Draw(ShaderProgram* program, glm::mat4& objectTr)
     // load the texture into a texture-unit of your choice and inform
     // the shader program of the texture-unit number.  See
     // Texture::Bind for the 4 lines of code to do exactly that.
-    if (textureId != 0) {
-        glActiveTexture((gl::GLenum)((int)GL_TEXTURE0 + textureId));
+    if (textureId != -1) {
+        glActiveTexture((gl::GLenum)((int)GL_TEXTURE0 + objectId));
         glBindTexture(GL_TEXTURE_2D, textureId);
         int loc = glGetUniformLocation(program->programId, "ObjectTexture");
-        glUniform1i(loc, textureId);
+        glUniform1i(loc, objectId);
     }
 
     // Draw this object

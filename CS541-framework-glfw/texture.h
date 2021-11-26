@@ -19,7 +19,7 @@ class Texture
     unsigned int textureId;
     int width, height, depth;
     unsigned char* image;
-    Texture(const std::string &filename);
+    Texture(const std::string &filename, bool repeat=false);
 
     void Bind(const int unit, const int programId, const std::string& name);
     void Unbind();

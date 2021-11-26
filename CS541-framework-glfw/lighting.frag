@@ -37,6 +37,7 @@ uniform int width, height;
 uniform sampler2D shadowMap;
 uniform sampler2D SkydomeTex;
 uniform sampler2D ObjectTexture;
+uniform int hasTexture;
 
 vec3 LightingPixel()
 {
@@ -59,7 +60,52 @@ vec3 LightingPixel()
         return returnColor;
     }
 
-    vec3 Kd = diffuse;   
+
+    vec3 Kd = diffuse;
+    if (hasTexture != -1){
+        //Get color from texture
+        vec2 uv = texCoord;
+        if (objectId == groundId)
+            uv *= 10;
+        if (objectId == floorId)
+            uv *= 5;
+        if (objectId == roomId){
+            uv = uv.yx;
+            uv *= 50;
+        }
+        if (objectId == rPicId){
+            if (texCoord.x < 0.1){
+                Kd = vec3(0.7, 0.7, 0.7);
+            }
+            else if (texCoord.y < 0.1){
+                Kd = vec3(0.7, 0.7, 0.7);
+            }
+            else if (texCoord.x > 0.9){
+                Kd = vec3(0.7, 0.7, 0.7);
+            }
+            else if (texCoord.y > 0.9){
+                Kd = vec3(0.7, 0.7, 0.7);
+            }  
+            else{
+                uv.x -= 0.05;
+                uv.y -= 0.1;
+                uv /= 0.8;
+                Kd = texture2D(ObjectTexture, uv).xyz;
+            }
+        }
+        if (objectId == lPicId){
+            uv *= 100;
+            if ((mod(uv.x, 20) > 5) && mod(uv.y, 20) > 5)
+                Kd = vec3(0.6, 0.0, 0.9);
+            else if ( uv.x < (uv.y + 10) && uv.x > (uv.y - 10))
+                Kd = vec3(0,0,0);
+            else
+                Kd = vec3(0.3, 0.0, 0.0);
+        }
+        else
+            Kd = texture2D(ObjectTexture, uv).xyz;
+    }
+        
     float alpha;
     float light_depth, pixel_depth;
     vec2 shadowIndex;
@@ -75,10 +121,10 @@ vec3 LightingPixel()
         }
     }
     // A checkerboard pattern to break up larte flat expanses.  Remove when using textures.
-    if (objectId==groundId || objectId==floorId || objectId==seaId) {
-        ivec2 uv = ivec2(floor(100.0*texCoord));
-        if ((uv[0]+uv[1])%2==0)
-            Kd *= 0.9; }
+    //if (objectId==groundId || objectId==floorId || objectId==seaId) {
+    //    ivec2 uv = ivec2(floor(100.0*texCoord));
+    //    if ((uv[0]+uv[1])%2==0)
+    //        Kd *= 0.9; }
     
     float LN = max(dot(L, N), 0.0);
     float NH = max(dot(N, H), 0.0);
