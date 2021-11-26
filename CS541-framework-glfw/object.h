@@ -38,10 +38,15 @@ class Object
     std::vector<INSTANCE> instances; // Pairs of sub-objects and transformations 
 
     int textureId;
+    int textureUnit;
+    
+    int nmapId;
+    int nmapUnit;
 
     Object(Shape* _shape, const int objectId,
            const glm::vec3 _d=glm::vec3(), const glm::vec3 _s=glm::vec3(), const float _n=1,
-		   const bool _reflective=false, const int _texId=-1);
+		   const bool _reflective=false, const int _texId=-1, const int texUnit = -1, 
+           const int _nmapId=-1, const int _nmapUnit=-1);
 
     // If this object is to be drawn with a texture, this is a good
     // place to store the texture id (a small positive integer).  The

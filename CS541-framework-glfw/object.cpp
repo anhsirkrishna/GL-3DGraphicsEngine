@@ -31,9 +31,10 @@ using namespace gl;
 
 Object::Object(Shape* _shape, const int _objectId,
                const glm::vec3 _diffuseColor, const glm::vec3 _specularColor, const float _shininess,
-			   const bool _reflective, const int _texId)
+			   const bool _reflective, const int _texId, const int _texUnit, const int _nmapId, const int _nmapUnit)
     : diffuseColor(_diffuseColor), specularColor(_specularColor), shininess(_shininess),
-      shape(_shape), objectId(_objectId), drawMe(true), reflective(_reflective), textureId(_texId)
+      shape(_shape), objectId(_objectId), drawMe(true), reflective(_reflective), textureId(_texId),
+      textureUnit(_texUnit), nmapId(_nmapId), nmapUnit(_nmapUnit)
      
 {}
 
@@ -82,16 +83,27 @@ void Object::Draw(ShaderProgram* program, glm::mat4& objectTr)
 
     loc = glGetUniformLocation(program->programId, "hasTexture");
     glUniform1i(loc, textureId);
+    
+    loc = glGetUniformLocation(program->programId, "hasNMap");
+    glUniform1i(loc, nmapId);
 
     // If this object has an associated texture, this is the place to
     // load the texture into a texture-unit of your choice and inform
     // the shader program of the texture-unit number.  See
     // Texture::Bind for the 4 lines of code to do exactly that.
     if (textureId != -1) {
-        glActiveTexture((gl::GLenum)((int)GL_TEXTURE0 + objectId));
+        glActiveTexture((gl::GLenum)((int)GL_TEXTURE0 + textureUnit));
         glBindTexture(GL_TEXTURE_2D, textureId);
         int loc = glGetUniformLocation(program->programId, "ObjectTexture");
-        glUniform1i(loc, objectId);
+        glUniform1i(loc, textureUnit);
+    }
+
+
+    if (nmapId != -1) {
+        glActiveTexture((gl::GLenum)((int)GL_TEXTURE0 + nmapUnit));
+        glBindTexture(GL_TEXTURE_2D, nmapId);
+        int loc = glGetUniformLocation(program->programId, "ObjectNMap");
+        glUniform1i(loc, nmapUnit);
     }
 
     // Draw this object

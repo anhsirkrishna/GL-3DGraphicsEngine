@@ -26,6 +26,7 @@ const float PI = 3.14159f;
 in vec3 normalVec, lightVec, eyeVec;
 in vec2 texCoord;
 in vec4 shadowCoord;
+in vec3 tanVec;
 
 uniform int objectId;
 uniform int lightingMode;
@@ -37,7 +38,8 @@ uniform int width, height;
 uniform sampler2D shadowMap;
 uniform sampler2D SkydomeTex;
 uniform sampler2D ObjectTexture;
-uniform int hasTexture;
+uniform sampler2D ObjectNMap;
+uniform int hasTexture, hasNMap;
 
 vec3 LightingPixel()
 {
@@ -47,6 +49,7 @@ vec3 LightingPixel()
     vec3 H = normalize(L+V);
 
     vec3 returnColor;
+    vec3 Kd = diffuse;
 
     if (objectId == skyId){
         vec2 uv = vec2(-atan(V.y, V.x)/(2*PI), acos(V.z)/PI);
@@ -56,15 +59,13 @@ vec3 LightingPixel()
     else if (objectId == seaId){
         vec3 R = -(2* dot(V, N) * N - V);
         vec2 uv = vec2(-atan(R.y, R.x)/(2*PI), acos(R.z)/PI);
-        returnColor = texture2D(SkydomeTex, uv).xyz;
-        return returnColor;
+        Kd = texture2D(SkydomeTex, uv).xyz;
     }
 
-
-    vec3 Kd = diffuse;
     if (hasTexture != -1){
         //Get color from texture
         vec2 uv = texCoord;
+
         if (objectId == groundId)
             uv *= 10;
         if (objectId == floorId)
@@ -93,7 +94,7 @@ vec3 LightingPixel()
                 Kd = texture2D(ObjectTexture, uv).xyz;
             }
         }
-        if (objectId == lPicId){
+        else if (objectId == lPicId){
             uv *= 100;
             if ((mod(uv.x, 20) > 5) && mod(uv.y, 20) > 5)
                 Kd = vec3(0.6, 0.0, 0.9);
@@ -104,6 +105,28 @@ vec3 LightingPixel()
         }
         else
             Kd = texture2D(ObjectTexture, uv).xyz;
+    }
+
+    if (hasNMap != -1){
+        vec2 uv = texCoord;
+        if (objectId == groundId)
+            uv *= 10;
+        if (objectId == floorId)
+            uv *= 5;
+        if (objectId == roomId){
+            uv = uv.yx;
+            uv *= 50;
+        }
+        if (objectId == seaId){
+            uv = uv.yx;
+            uv *= 500;
+        }
+        vec3 delta = texture2D(ObjectNMap, uv).xyz;
+        delta = delta*2.0 - vec3(1, 1, 1);
+        vec3 T = normalize(tanVec);
+        vec3 B = normalize(cross(T, N));
+        N = delta.x*T + delta.y*B + delta.z*N;
+        N = normalize(N);
     }
         
     float alpha;
