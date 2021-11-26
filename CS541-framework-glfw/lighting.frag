@@ -35,6 +35,8 @@ uniform vec3 light, ambient;
 uniform int width, height;
 
 uniform sampler2D shadowMap;
+uniform sampler2D SkydomeTex;
+uniform sampler2D ObjectTexture;
 
 vec3 LightingPixel()
 {
@@ -43,7 +45,19 @@ vec3 LightingPixel()
     vec3 V = normalize(eyeVec);
     vec3 H = normalize(L+V);
 
-	vec3 returnColor;
+    vec3 returnColor;
+
+    if (objectId == skyId){
+        vec2 uv = vec2(-atan(V.y, V.x)/(2*PI), acos(V.z)/PI);
+        returnColor = texture2D(SkydomeTex, uv).xyz;
+        return returnColor;
+    }
+    else if (objectId == seaId){
+        vec3 R = -(2* dot(V, N) * N - V);
+        vec2 uv = vec2(-atan(R.y, R.x)/(2*PI), acos(R.z)/PI);
+        returnColor = texture2D(SkydomeTex, uv).xyz;
+        return returnColor;
+    }
 
     vec3 Kd = diffuse;   
     float alpha;

@@ -299,6 +299,10 @@ void Scene::InitializeScene()
 
     // Options menu stuff
     show_demo_window = false;
+
+    p_sky_dome_cage = new Texture(".\\textures\\cages.jpg");
+    p_sky_dome = new Texture(".\\textures\\Sky-049.jpg");
+    p_sky_dome_night = new Texture(".\\textures\\core.bmp");
 }
 
 void Scene::DrawMenu()
@@ -329,6 +333,13 @@ void Scene::DrawMenu()
 			if (ImGui::MenuItem("Off", "", reflectionMode == 3)) { reflectionMode = 3; }
 			ImGui::EndMenu();
 		}
+
+        if (ImGui::BeginMenu("Skydome ")) {
+            if (ImGui::MenuItem("Sky", "", sky_dome_mode == 0)) { sky_dome_mode = 0; }
+            if (ImGui::MenuItem("Stars", "", sky_dome_mode == 1)) { sky_dome_mode = 1; }
+            if (ImGui::MenuItem("Cage", "", sky_dome_mode == 2)) { sky_dome_mode = 2; }
+            ImGui::EndMenu();
+        }
 
         // This menu demonstrates how to provide the user a choice
         // among a set of choices.  The current choice is stored in a
@@ -465,7 +476,7 @@ void Scene::DrawScene()
     shadowPassRenderTarget.Bind();
     glClearColor(0.5, 0.5, 0.5, 1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+    CHECKERROR;
 
     // @@ The scene specific parameters (uniform variables) used by
     // the shader are set here.  Object specific parameters are set in
@@ -483,6 +494,7 @@ void Scene::DrawScene()
     objectRoot->Draw(shadowProgram, Identity);
     CHECKERROR;
     shadowPassRenderTarget.Unbind();
+    CHECKERROR;
     // Turn off the shader
     shadowProgram->Unuse();
     glDisable(GL_CULL_FACE);
@@ -499,11 +511,26 @@ void Scene::DrawScene()
 	reflectionProgram->Use();
 	programId = reflectionProgram->programId;
 
-	glActiveTexture(GL_TEXTURE2); // Activate texture unit 2
+    //Bind the skydome texture
+    switch (sky_dome_mode)
+    {
+    case 0:
+        p_sky_dome->Bind(0, programId, "SkydomeTex");
+        break;
+    case 1:
+        p_sky_dome_night->Bind(0, programId, "SkydomeTex");
+        break;
+    case 2:
+        p_sky_dome_cage->Bind(0, programId, "SkydomeTex");
+        break;
+    }
+    CHECKERROR;
+
+	glActiveTexture(GL_TEXTURE10); // Activate texture unit 10
 	glBindTexture(GL_TEXTURE_2D, shadowPassRenderTarget.textureID); // Load texture into it
 	CHECKERROR;
 	loc = glGetUniformLocation(reflectionProgram->programId, "shadowMap");
-	glUniform1i(loc, 2); // Tell shader texture is in unit 2
+	glUniform1i(loc, 10); // Tell shader texture is in unit 2
 	CHECKERROR;
 
 	// Set the viewport, and clear the screen
@@ -570,6 +597,8 @@ void Scene::DrawScene()
 	objectRoot->Draw(reflectionProgram, Identity);
 	CHECKERROR;
 	lowerReflectionRenderTarget.Unbind();
+    p_sky_dome->Unbind();
+    CHECKERROR;
 	// Turn off the shader
 	reflectionProgram->Unuse();
 	////////////////////////////////////////////////////////////////////////////////
@@ -584,23 +613,39 @@ void Scene::DrawScene()
     lightingProgram->Use();
     programId = lightingProgram->programId;
     CHECKERROR;
-    glActiveTexture(GL_TEXTURE2); // Activate texture unit 2
+
+    //Bind the skydome texture
+    switch (sky_dome_mode)
+    {
+    case 0 :
+        p_sky_dome->Bind(0, programId, "SkydomeTex");
+        break;
+    case 1:
+        p_sky_dome_night->Bind(0, programId, "SkydomeTex");
+        break;
+    case 2:
+        p_sky_dome_cage->Bind(0, programId, "SkydomeTex");
+        break;
+    }
+    CHECKERROR;
+
+    glActiveTexture(GL_TEXTURE10); // Activate texture unit 10
     glBindTexture(GL_TEXTURE_2D, shadowPassRenderTarget.textureID); // Load texture into it
     CHECKERROR;
     loc = glGetUniformLocation(lightingProgram->programId, "shadowMap");
-    glUniform1i(loc, 2); // Tell shader texture is in unit 2
+    glUniform1i(loc, 10); // Tell shader texture is in unit 10
     CHECKERROR;
-    glActiveTexture(GL_TEXTURE3); // Activate texture unit 3
+    glActiveTexture(GL_TEXTURE11); // Activate texture unit 11
     glBindTexture(GL_TEXTURE_2D, upperReflectionRenderTarget.textureID); // Load texture into it
     CHECKERROR;
     loc = glGetUniformLocation(lightingProgram->programId, "upperReflectionMap");
-    glUniform1i(loc, 3); // Tell shader texture is in unit 2
+    glUniform1i(loc, 11); // Tell shader texture is in unit 11
     CHECKERROR;
-    glActiveTexture(GL_TEXTURE4); // Activate texture unit 4
+    glActiveTexture(GL_TEXTURE12); // Activate texture unit 12
     glBindTexture(GL_TEXTURE_2D, lowerReflectionRenderTarget.textureID); // Load texture into it
     CHECKERROR;
     loc = glGetUniformLocation(lightingProgram->programId, "lowerReflectionMap");
-    glUniform1i(loc, 4); // Tell shader texture is in unit 2
+    glUniform1i(loc, 12); // Tell shader texture is in unit 12
 
     // Set the viewport, and clear the screen
     glViewport(0, 0, width, height);
@@ -644,7 +689,8 @@ void Scene::DrawScene()
     objectRoot->Draw(lightingProgram, Identity);
     CHECKERROR; 
 
-    
+    p_sky_dome->Unbind();
+    CHECKERROR;
     // Turn off the shader
     lightingProgram->Unuse();
 

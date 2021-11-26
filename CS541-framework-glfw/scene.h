@@ -92,6 +92,10 @@ public:
 
     glm::mat4 BMatrix, ShadowMatrix;
 
+    Texture *p_sky_dome;
+    Texture *p_sky_dome_cage;
+    Texture *p_sky_dome_night;
+    int sky_dome_mode = 0;
     // Options menu stuff
     bool show_demo_window;
 
