@@ -253,8 +253,8 @@ void Scene::InitializeScene()
     Texture crateNMap(".\\textures\\crate1_normal.jpg", false);
     
     //Floor texture from https://opengameart.org/content/117-stone-wall-tilable-textures-in-8-themes
-    Texture floorTexture(".\\textures\\Tileable6.jpg", true);
-    Texture floorNMap(".\\textures\\Tileable6_nm.jpg", true);
+    Texture floorTexture(".\\textures\\Tileable8.jpg", true);
+    Texture floorNMap(".\\textures\\Tileable8_nm.jpg", true);
 
     //Wall texture from https://opengameart.org/content/pixars-textures
     Texture wallTexture(".\\textures\\Black_glazed_tile_pxr128.jpg");
@@ -326,8 +326,8 @@ void Scene::InitializeScene()
     show_demo_window = false;
 
     p_sky_dome_cage = new Texture(".\\textures\\cages.jpg");
-    p_sky_dome = new Texture(".\\textures\\Sky-049.jpg");
-    p_sky_dome_night = new Texture(".\\textures\\core.jpg");
+    //Skydome texture from https://vwartclub.com/?section=xfree3d&category=hdri&article=xfree3d-hdri-shop-s84-low-cloudy-1836
+    p_sky_dome = new Texture(".\\textures\\Sky.jpg");
 }
 
 void Scene::DrawMenu()
@@ -361,8 +361,7 @@ void Scene::DrawMenu()
 
         if (ImGui::BeginMenu("Skydome ")) {
             if (ImGui::MenuItem("Sky", "", sky_dome_mode == 0)) { sky_dome_mode = 0; }
-            if (ImGui::MenuItem("Stars", "", sky_dome_mode == 1)) { sky_dome_mode = 1; }
-            if (ImGui::MenuItem("Cage", "", sky_dome_mode == 2)) { sky_dome_mode = 2; }
+            if (ImGui::MenuItem("Cage", "", sky_dome_mode == 1)) { sky_dome_mode = 1; }
             ImGui::EndMenu();
         }
 
@@ -543,9 +542,6 @@ void Scene::DrawScene()
         p_sky_dome->Bind(13, programId, "SkydomeTex");
         break;
     case 1:
-        p_sky_dome_night->Bind(13, programId, "SkydomeTex");
-        break;
-    case 2:
         p_sky_dome_cage->Bind(13, programId, "SkydomeTex");
         break;
     }
@@ -646,9 +642,6 @@ void Scene::DrawScene()
         p_sky_dome->Bind(13, programId, "SkydomeTex");
         break;
     case 1:
-        p_sky_dome_night->Bind(13, programId, "SkydomeTex");
-        break;
-    case 2:
         p_sky_dome_cage->Bind(13, programId, "SkydomeTex");
         break;
     }
