@@ -20,8 +20,10 @@ const int     floorId	= 11;
 const int Phong_M = 0;
 const int BRDF_M = 1;
 const int GGX_M = 2;
+const int IBL_M = 3;
 
 const float PI = 3.14159f;
+const float exposure = 3;
 
 in vec3 normalVec, lightVec, eyeVec;
 in vec2 texCoord;
@@ -34,9 +36,11 @@ uniform vec3 diffuse, specular;
 uniform float shininess;
 uniform vec3 light, ambient;
 uniform int width, height;
+uniform bool reflective;
 
 uniform sampler2D shadowMap;
 uniform sampler2D SkydomeTex;
+uniform sampler2D IrrMapTex;
 uniform sampler2D ObjectTexture;
 uniform sampler2D ObjectNMap;
 uniform int hasTexture, hasNMap;
@@ -149,6 +153,18 @@ vec3 LightingPixel()
     //    if ((uv[0]+uv[1])%2==0)
     //        Kd *= 0.9; }
     
+    //Convert colors into linear color space for calculations
+    Kd = (exposure*Kd)/(exposure*Kd + 1);
+    Kd.r = pow(Kd.r, 2.2);
+    Kd.g = pow(Kd.g, 2.2);
+    Kd.b = pow(Kd.b, 2.2);
+
+    vec3 Ks = (exposure*specular)/(exposure*specular +1);
+    Ks.r = pow(Ks.r, 2.2);
+    Ks.g = pow(Ks.g, 2.2);
+    Ks.b = pow(Ks.b, 2.2);
+
+
     float LN = max(dot(L, N), 0.0);
     float NH = max(dot(N, H), 0.0);
     float LH = max(dot(L, H), 0.0);
@@ -157,14 +173,46 @@ vec3 LightingPixel()
         if (pixel_depth > (light_depth + 0.01))
             returnColor = ambient*Kd;
         else
-            returnColor = ambient*Kd + light*(Kd/PI)*LN + light*(specular*10)*pow(NH, alpha);
-        //specular value coming in is for BRDF so adjust for Phong by multiplying by 10
+            returnColor = ambient*Kd + light*(Kd/PI)*LN + light*(Ks*10)*pow(NH, alpha);
+        //Ks value coming in is for BRDF so adjust for Phong by multiplying by 10
+    }
+    else if (lightingMode == IBL_M){
+        vec2 uv = vec2(-atan(-N.y, -N.x)/(2*PI), acos(-N.z)/PI);
+        vec3 irr_map_color = texture2D(IrrMapTex, uv).xyz;
+        irr_map_color = (exposure*irr_map_color)/(exposure*irr_map_color + 1);
+        irr_map_color.r = pow(irr_map_color.r, 2.2);
+        irr_map_color.g = pow(irr_map_color.g, 2.2);
+        irr_map_color.b = pow(irr_map_color.b, 2.2);
+
+        vec3 R = normalize((2*dot(N, V)*N) - V);
+        vec3 newH = normalize(R+V);
+        uv = vec2(-atan(-R.y, -R.x)/(2*PI), acos(-R.z)/PI);
+        vec3 reflection_map_color = texture2D(SkydomeTex, uv).xyz;
+        
+        vec3 brdf;
+        float distribution;
+        float RH = max(dot(R, newH), 0);
+        float NR = max(dot(N, R), 0.0);
+        float newNH = max(dot(N, newH), 0);
+        vec3 fresnel = Ks + ((vec3(1,1,1) - Ks)*pow((1-RH), 5));
+        float visibility = 1/(RH*RH);
+        float alpha = -2 + (2/(shininess*shininess));
+        distribution = ((alpha+2)/(2*PI))*pow(newNH, alpha);
+
+        brdf = ((fresnel*visibility*distribution)/4);
+
+        reflection_map_color = ((exposure* reflection_map_color)/(exposure*reflection_map_color + 1));
+        reflection_map_color.r = pow(reflection_map_color.r, 2.2);
+        reflection_map_color.g = pow(reflection_map_color.g, 2.2);
+        reflection_map_color.b = pow(reflection_map_color.b, 2.2);
+        returnColor = (Kd/PI)*irr_map_color + (reflection_map_color * brdf * NR);
+        //returnColor = (Kd/PI)*irr_map_color;
     }
     else {
         vec3 brdf;
         float distribution;
         
-        vec3 fresnel = specular + ((vec3(1,1,1) - specular)*pow((1-LH), 5));
+        vec3 fresnel = Ks + ((vec3(1,1,1) - Ks)*pow((1-LH), 5));
         float visibility = 1/(LH*LH);
 
         if (lightingMode == BRDF_M){
@@ -182,6 +230,12 @@ vec3 LightingPixel()
         else
             returnColor = ambient*Kd + light*LN*brdf;
     }
+
+    //Convert color back into sRGB space
+    returnColor = (exposure*returnColor)/(exposure*returnColor + 1);
+    returnColor.r = pow(returnColor.r, 1/2.2);
+    returnColor.g = pow(returnColor.g, 1/2.2);
+    returnColor.b = pow(returnColor.b, 1/2.2);
 
 	return returnColor;
 }

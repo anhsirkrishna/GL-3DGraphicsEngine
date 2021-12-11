@@ -272,13 +272,16 @@ void Scene::InitializeScene()
     central    = new Object(NULL, nullId);
     anim       = new Object(NULL, nullId);
     room       = new Object(RoomPolygons, roomId, brickColor, black, 0.817, false, wallTexture.textureId, 0, wallNMap.textureId, 1); //phong alpha = 1
+    room->drawMe = false;
     floor      = new Object(FloorPolygons, floorId, floorColor, black, 0.817, false, floorTexture.textureId, 2, floorNMap.textureId, 3); //phong alpha = 1
-    teapot     = new Object(TeapotPolygons, teapotId, brassColor, brightSpec, 0.128, true, teapotTexture.textureId, 4, teapotNMap.textureId, 5); //phong alpha = 120 | Reflective set to true
+    teapot     = new Object(TeapotPolygons, teapotId, brassColor, brightSpec, 0.128, true, teapotTexture.textureId, 4, -1, 5); //phong alpha = 120 | Reflective set to true
 	reflectionEye = glm::vec3(0, 0, 1.5);
     podium     = new Object(BoxPolygons, boxId, glm::vec3(woodColor), polishedSpec, 0.408, false, crateTexture.textureId, 6, crateNMap.textureId, 7); //phong alpha = 10 
     sky        = new Object(SpherePolygons, skyId, black, black, 1); //phong alpha = 0
     ground     = new Object(GroundPolygons, groundId, grassColor, black, 0.817, false, grassTexture.textureId, 8, grassNMap.textureId, 9); //phong alpha = 1
+    ground->drawMe = false;
     sea        = new Object(SeaPolygons, seaId, waterColor, brightSpec, 0.128, false, -1, -1, waterNMap.textureId, 10); //phong alpha = 120
+    sea->drawMe = false;
     leftFrame  = FramedPicture(Identity, lPicId, BoxPolygons, QuadPolygons, gooseTexture.textureId, 11);
     rightFrame = FramedPicture(Identity, rPicId, BoxPolygons, QuadPolygons, gooseTexture.textureId, 12);
     spheres    = SphereOfSpheres(SpherePolygons);
@@ -328,6 +331,8 @@ void Scene::InitializeScene()
     p_sky_dome_cage = new Texture(".\\textures\\cages.jpg");
     //Skydome texture from https://vwartclub.com/?section=xfree3d&category=hdri&article=xfree3d-hdri-shop-s84-low-cloudy-1836
     p_sky_dome = new Texture(".\\textures\\Sky.jpg");
+    p_barca_sky = new Texture(".\\textures\\MonValley_A_LookoutPoint_2k.hdr");
+    p_irr_map = new Texture(".\\textures\\MonValley_A_LookoutPoint_2k.irr.hdr");
 }
 
 void Scene::DrawMenu()
@@ -341,13 +346,15 @@ void Scene::DrawMenu()
         if (ImGui::BeginMenu("Objects")) {
             if (ImGui::MenuItem("Draw spheres", "", spheres->drawMe))  {spheres->drawMe ^= true; }
             if (ImGui::MenuItem("Draw walls", "", room->drawMe))       {room->drawMe ^= true; }
-            if (ImGui::MenuItem("Draw ground/sea", "", ground->drawMe)){ground->drawMe ^= true;}
+            if (ImGui::MenuItem("Draw ground", "", ground->drawMe)){ground->drawMe ^= true;}
+            if (ImGui::MenuItem("Draw sea", "", sea->drawMe)) { sea->drawMe ^= true; }
             ImGui::EndMenu(); }
         
         if (ImGui::BeginMenu("Lighting ")) {
             if (ImGui::MenuItem("Phong", "", lightingMode == 0)) { lightingMode = 0; }
             if (ImGui::MenuItem("BRDF", "", lightingMode == 1)) { lightingMode = 1; }
             if (ImGui::MenuItem("GGX", "", lightingMode == 2)) { lightingMode = 2; }
+            if (ImGui::MenuItem("IBL", "", lightingMode == 3)) { lightingMode = 3; }
             ImGui::EndMenu();
         }
 
@@ -362,6 +369,7 @@ void Scene::DrawMenu()
         if (ImGui::BeginMenu("Skydome ")) {
             if (ImGui::MenuItem("Sky", "", sky_dome_mode == 0)) { sky_dome_mode = 0; }
             if (ImGui::MenuItem("Cage", "", sky_dome_mode == 1)) { sky_dome_mode = 1; }
+            if (ImGui::MenuItem("HDR Sky", "", sky_dome_mode == 2)) { sky_dome_mode = 2; }
             ImGui::EndMenu();
         }
 
@@ -544,7 +552,13 @@ void Scene::DrawScene()
     case 1:
         p_sky_dome_cage->Bind(13, programId, "SkydomeTex");
         break;
+    case 2:
+        p_barca_sky->Bind(13, programId, "SkydomeTex");
+        break;
     }
+    CHECKERROR;
+
+    p_irr_map->Bind(14, programId, "IrrMapTex");
     CHECKERROR;
 
 	glActiveTexture(GL_TEXTURE15); // Activate texture unit 15
@@ -619,6 +633,7 @@ void Scene::DrawScene()
 	CHECKERROR;
 	lowerReflectionRenderTarget.Unbind();
     p_sky_dome->Unbind();
+    p_irr_map->Unbind();
     CHECKERROR;
 	// Turn off the shader
 	reflectionProgram->Unuse();
@@ -644,7 +659,12 @@ void Scene::DrawScene()
     case 1:
         p_sky_dome_cage->Bind(13, programId, "SkydomeTex");
         break;
+    case 2:
+        p_barca_sky->Bind(13, programId, "SkydomeTex");
     }
+    CHECKERROR;
+
+    p_irr_map->Bind(14, programId, "IrrMapTex");
     CHECKERROR;
 
     glActiveTexture(GL_TEXTURE15); // Activate texture unit 15
@@ -708,7 +728,7 @@ void Scene::DrawScene()
     CHECKERROR; 
 
     p_sky_dome->Unbind();
-    CHECKERROR;
+    p_irr_map->Unbind();
     // Turn off the shader
     lightingProgram->Unuse();
 
