@@ -23,7 +23,7 @@ const int GGX_M = 2;
 const int IBL_M = 3;
 
 const float PI = 3.14159f;
-const float exposure = 3;
+const float exposure = 2;
 
 in vec3 normalVec, lightVec, eyeVec;
 in vec2 texCoord;
@@ -32,6 +32,7 @@ in vec3 tanVec;
 
 uniform int objectId;
 uniform int lightingMode;
+uniform int textureMode;
 uniform vec3 diffuse, specular;
 uniform float shininess;
 uniform vec3 light, ambient;
@@ -54,83 +55,88 @@ vec3 LightingPixel()
 
     vec3 returnColor;
     vec3 Kd = diffuse;
+    vec3 Ks = specular;
 
-    if (objectId == skyId){
-        vec2 uv = vec2(-atan(V.y, V.x)/(2*PI), acos(V.z)/PI);
-        returnColor = texture2D(SkydomeTex, uv).xyz;
-        return returnColor;
-    }
-    else if (objectId == seaId){
-        vec3 R = -(2* dot(V, N) * N - V);
-        vec2 uv = vec2(-atan(R.y, R.x)/(2*PI), acos(R.z)/PI);
-        Kd = texture2D(SkydomeTex, uv).xyz;
-    }
+    if (textureMode == 1) {
 
-    if (hasTexture != -1){
-        //Get color from texture
-        vec2 uv = texCoord;
-
-        if (objectId == groundId)
-            uv *= 10;
-        if (objectId == floorId)
-            uv *= 5;
-        if (objectId == roomId){
-            uv = uv.yx;
-            uv *= 50;
+        if (objectId == skyId){
+            vec2 uv = vec2(-atan(V.y, V.x)/(2*PI), acos(V.z)/PI);
+            returnColor = texture2D(SkydomeTex, uv).xyz;
+            return returnColor;
         }
-        if (objectId == rPicId){
-            if (texCoord.x < 0.1){
-                Kd = vec3(0.7, 0.7, 0.7);
-            }
-            else if (texCoord.y < 0.1){
-                Kd = vec3(0.7, 0.7, 0.7);
-            }
-            else if (texCoord.x > 0.9){
-                Kd = vec3(0.7, 0.7, 0.7);
-            }
-            else if (texCoord.y > 0.9){
-                Kd = vec3(0.7, 0.7, 0.7);
-            }  
-            else{
-                uv.x -= 0.05;
-                uv.y -= 0.1;
-                uv /= 0.8;
-                Kd = texture2D(ObjectTexture, uv).xyz;
-            }
+        else if (objectId == seaId){
+            vec3 R = -(2* dot(V, N) * N - V);
+            vec2 uv = vec2(-atan(R.y, R.x)/(2*PI), acos(R.z)/PI);
+            Kd = texture2D(SkydomeTex, uv).xyz;
         }
-        else if (objectId == lPicId){
-            uv *= 100;
-            if ((mod(uv.x, 20) > 5) && mod(uv.y, 20) > 5)
-                Kd = vec3(0.6, 0.0, 0.9);
-            else if ( uv.x < (uv.y + 10) && uv.x > (uv.y - 10))
-                Kd = vec3(0,0,0);
+
+        if (hasTexture != -1){
+            //Get color from texture
+            vec2 uv = texCoord;
+
+            if (objectId == groundId)
+                uv *= 10;
+            if (objectId == floorId)
+                uv *= 5;
+            if (objectId == roomId){
+                uv = uv.yx;
+                uv *= 50;
+            }
+            if (objectId == rPicId){
+                if (texCoord.x < 0.1){
+                    Kd = vec3(0.7, 0.7, 0.7);
+                }
+                else if (texCoord.y < 0.1){
+                    Kd = vec3(0.7, 0.7, 0.7);
+                }
+                else if (texCoord.x > 0.9){
+                    Kd = vec3(0.7, 0.7, 0.7);
+                }
+                else if (texCoord.y > 0.9){
+                    Kd = vec3(0.7, 0.7, 0.7);
+                }  
+                else{
+                    uv.x -= 0.05;
+                    uv.y -= 0.1;
+                    uv /= 0.8;
+                    Kd = texture2D(ObjectTexture, uv).xyz;
+                }
+            }
+            else if (objectId == lPicId){
+                uv *= 100;
+                if ((mod(uv.x, 20) > 5) && mod(uv.y, 20) > 5)
+                    Kd = vec3(0.6, 0.0, 0.9);
+                else if ( uv.x < (uv.y + 10) && uv.x > (uv.y - 10))
+                    Kd = vec3(0,0,0);
+                else
+                    Kd = vec3(0.3, 0.0, 0.0);
+            }
             else
-                Kd = vec3(0.3, 0.0, 0.0);
+                Kd = texture2D(ObjectTexture, uv).xyz;
         }
-        else
-            Kd = texture2D(ObjectTexture, uv).xyz;
-    }
-
-    if (hasNMap != -1){
-        vec2 uv = texCoord;
-        if (objectId == groundId)
-            uv *= 10;
-        if (objectId == floorId)
-            uv *= 5;
-        if (objectId == roomId){
-            uv = uv.yx;
-            uv *= 50;
+        if (hasNMap != -1){
+            vec2 uv = texCoord;
+            if (objectId == groundId)
+                uv *= 10;
+            if (objectId == floorId)
+                uv *= 5;
+            if (objectId == roomId){
+                uv = uv.yx;
+                uv *= 50;
+            }
+            if (objectId == seaId){
+                uv = uv.yx;
+                uv *= 500;
+            }
+            vec3 delta = texture2D(ObjectNMap, uv).xyz;
+            if (objectId == floorId)
+                delta = delta/(100.0/255.0); //Some extra calculation required for the special normal map used for the floor
+            delta = delta*2.0 - vec3(1, 1, 1);
+            vec3 T = normalize(tanVec);
+            vec3 B = normalize(cross(T, N));
+            N = delta.x*T + delta.y*B + delta.z*N;
+            N = normalize(N);
         }
-        if (objectId == seaId){
-            uv = uv.yx;
-            uv *= 500;
-        }
-        vec3 delta = texture2D(ObjectNMap, uv).xyz;
-        delta = delta*2.0 - vec3(1, 1, 1);
-        vec3 T = normalize(tanVec);
-        vec3 B = normalize(cross(T, N));
-        N = delta.x*T + delta.y*B + delta.z*N;
-        N = normalize(N);
     }
         
     float alpha;
@@ -148,21 +154,16 @@ vec3 LightingPixel()
         }
     }
     // A checkerboard pattern to break up larte flat expanses.  Remove when using textures.
-    //if (objectId==groundId || objectId==floorId || objectId==seaId) {
-    //    ivec2 uv = ivec2(floor(100.0*texCoord));
-    //    if ((uv[0]+uv[1])%2==0)
-    //        Kd *= 0.9; }
+    if (textureMode == 0){
+        if (objectId==groundId || objectId==floorId || objectId==seaId) {
+            ivec2 uv = ivec2(floor(100.0*texCoord));
+            if ((uv[0]+uv[1])%2==0)
+                Kd *= 0.9; }
+    }
     
     //Convert colors into linear color space for calculations
-    Kd = (exposure*Kd)/(exposure*Kd + 1);
-    Kd.r = pow(Kd.r, 2.2);
-    Kd.g = pow(Kd.g, 2.2);
-    Kd.b = pow(Kd.b, 2.2);
-
-    vec3 Ks = (exposure*specular)/(exposure*specular +1);
-    Ks.r = pow(Ks.r, 2.2);
-    Ks.g = pow(Ks.g, 2.2);
-    Ks.b = pow(Ks.b, 2.2);
+    Kd = pow(Kd, vec3(2.2));
+    Ks = pow(Ks, vec3(2.2));
 
 
     float LN = max(dot(L, N), 0.0);
@@ -179,16 +180,14 @@ vec3 LightingPixel()
     else if (lightingMode == IBL_M){
         vec2 uv = vec2(-atan(-N.y, -N.x)/(2*PI), acos(-N.z)/PI);
         vec3 irr_map_color = texture2D(IrrMapTex, uv).xyz;
-        irr_map_color = (exposure*irr_map_color)/(exposure*irr_map_color + 1);
-        irr_map_color.r = pow(irr_map_color.r, 2.2);
-        irr_map_color.g = pow(irr_map_color.g, 2.2);
-        irr_map_color.b = pow(irr_map_color.b, 2.2);
+        irr_map_color = pow(irr_map_color, vec3(2.2));
 
-        vec3 R = normalize((2*dot(N, V)*N) - V);
+        vec3 R = (2*dot(N, V)*N) - V;
         vec3 newH = normalize(R+V);
         uv = vec2(-atan(-R.y, -R.x)/(2*PI), acos(-R.z)/PI);
         vec3 reflection_map_color = texture2D(SkydomeTex, uv).xyz;
-        
+        reflection_map_color = pow(reflection_map_color, vec3(2.2));
+
         vec3 brdf;
         float distribution;
         float RH = max(dot(R, newH), 0);
@@ -200,11 +199,7 @@ vec3 LightingPixel()
         distribution = ((alpha+2)/(2*PI))*pow(newNH, alpha);
 
         brdf = ((fresnel*visibility*distribution)/4);
-
-        reflection_map_color = ((exposure* reflection_map_color)/(exposure*reflection_map_color + 1));
-        reflection_map_color.r = pow(reflection_map_color.r, 2.2);
-        reflection_map_color.g = pow(reflection_map_color.g, 2.2);
-        reflection_map_color.b = pow(reflection_map_color.b, 2.2);
+      
         returnColor = (Kd/PI)*irr_map_color + (reflection_map_color * brdf * NR);
         //returnColor = (Kd/PI)*irr_map_color;
     }
@@ -233,9 +228,7 @@ vec3 LightingPixel()
 
     //Convert color back into sRGB space
     returnColor = (exposure*returnColor)/(exposure*returnColor + 1);
-    returnColor.r = pow(returnColor.r, 1/2.2);
-    returnColor.g = pow(returnColor.g, 1/2.2);
-    returnColor.b = pow(returnColor.b, 1/2.2);
+    returnColor = pow(returnColor, vec3(1/2.2));
 
-	return returnColor;
+	return N;
 }

@@ -272,16 +272,13 @@ void Scene::InitializeScene()
     central    = new Object(NULL, nullId);
     anim       = new Object(NULL, nullId);
     room       = new Object(RoomPolygons, roomId, brickColor, black, 0.817, false, wallTexture.textureId, 0, wallNMap.textureId, 1); //phong alpha = 1
-    room->drawMe = false;
     floor      = new Object(FloorPolygons, floorId, floorColor, black, 0.817, false, floorTexture.textureId, 2, floorNMap.textureId, 3); //phong alpha = 1
-    teapot     = new Object(TeapotPolygons, teapotId, brassColor, brightSpec, 0.128, true, teapotTexture.textureId, 4, -1, 5); //phong alpha = 120 | Reflective set to true
+    teapot     = new Object(TeapotPolygons, teapotId, brassColor, brightSpec, 0.128, true, teapotTexture.textureId, 4, teapotNMap.textureId, 5); //phong alpha = 120 | Reflective set to true
 	reflectionEye = glm::vec3(0, 0, 1.5);
     podium     = new Object(BoxPolygons, boxId, glm::vec3(woodColor), polishedSpec, 0.408, false, crateTexture.textureId, 6, crateNMap.textureId, 7); //phong alpha = 10 
     sky        = new Object(SpherePolygons, skyId, black, black, 1); //phong alpha = 0
     ground     = new Object(GroundPolygons, groundId, grassColor, black, 0.817, false, grassTexture.textureId, 8, grassNMap.textureId, 9); //phong alpha = 1
-    ground->drawMe = false;
     sea        = new Object(SeaPolygons, seaId, waterColor, brightSpec, 0.128, false, -1, -1, waterNMap.textureId, 10); //phong alpha = 120
-    sea->drawMe = false;
     leftFrame  = FramedPicture(Identity, lPicId, BoxPolygons, QuadPolygons, gooseTexture.textureId, 11);
     rightFrame = FramedPicture(Identity, rPicId, BoxPolygons, QuadPolygons, gooseTexture.textureId, 12);
     spheres    = SphereOfSpheres(SpherePolygons);
@@ -331,8 +328,10 @@ void Scene::InitializeScene()
     p_sky_dome_cage = new Texture(".\\textures\\cages.jpg");
     //Skydome texture from https://vwartclub.com/?section=xfree3d&category=hdri&article=xfree3d-hdri-shop-s84-low-cloudy-1836
     p_sky_dome = new Texture(".\\textures\\Sky.jpg");
-    p_barca_sky = new Texture(".\\textures\\MonValley_A_LookoutPoint_2k.hdr");
-    p_irr_map = new Texture(".\\textures\\MonValley_A_LookoutPoint_2k.irr.hdr");
+    p_barca_sky = new Texture(".\\textures\\Barce_Rooftop_C_3k.hdr", true);
+    p_irr_map = new Texture(".\\textures\\Barce_Rooftop_C_3k.irr.hdr", true);
+    //p_barca_sky = new Texture(".\\textures\\MonValley_A_LookoutPoint_2k.hdr");
+    //p_irr_map = new Texture(".\\textures\\MonValley_A_LookoutPoint_2k.irr.hdr");
 }
 
 void Scene::DrawMenu()
@@ -377,12 +376,18 @@ void Scene::DrawMenu()
         // among a set of choices.  The current choice is stored in a
         // variable named "mode" in the application, and sent to the
         // shader to be used as you wish.
-        if (ImGui::BeginMenu("Menu ")) {
-            if (ImGui::MenuItem("<sample menu of choices>", "",	false, false)) {}
-            if (ImGui::MenuItem("Do nothing 0", "",		mode==0)) { mode=0; }
-            if (ImGui::MenuItem("Do nothing 1", "",		mode==1)) { mode=1; }
-            if (ImGui::MenuItem("Do nothing 2", "",		mode==2)) { mode=2; }
+        if (ImGui::BeginMenu("Textures ")) {
+            if (ImGui::MenuItem("Off", "", texture_mode == 0)) { texture_mode = 0; }
+            if (ImGui::MenuItem("On", "", texture_mode == 1)) { texture_mode = 1; }
             ImGui::EndMenu(); }
+
+        if (ImGui::BeginMenu("Draw FBOs")) {
+            if (ImGui::MenuItem("Draw Shadow Map", "", draw_fbo == 0)) { draw_fbo = 0; }
+            if (ImGui::MenuItem("Draw Upper Reflection Map ", "", draw_fbo == 1)) { draw_fbo = 1; }
+            if (ImGui::MenuItem("Draw Lower Reflection Map", "", draw_fbo == 2)) { draw_fbo = 2; }
+            if (ImGui::MenuItem("Disable", "", draw_fbo == 3)) { draw_fbo = 3; }
+            ImGui::EndMenu();
+        }
 
         ImGui::EndMainMenuBar(); }
 
@@ -597,6 +602,8 @@ void Scene::DrawScene()
 	glUniform1i(loc, lightingMode);
 	loc = glGetUniformLocation(programId, "mode");
 	glUniform1i(loc, mode);
+    loc = glGetUniformLocation(programId, "textureMode");
+    glUniform1i(loc, texture_mode);
 	loc = glGetUniformLocation(programId, "width");
 	glUniform1i(loc, width);
 	loc = glGetUniformLocation(programId, "height");
@@ -673,18 +680,22 @@ void Scene::DrawScene()
     loc = glGetUniformLocation(lightingProgram->programId, "shadowMap");
     glUniform1i(loc, 15); // Tell shader texture is in unit 15
     CHECKERROR;
+    
     glActiveTexture(GL_TEXTURE16); // Activate texture unit 16
     glBindTexture(GL_TEXTURE_2D, upperReflectionRenderTarget.textureID); // Load texture into it
     CHECKERROR;
     loc = glGetUniformLocation(lightingProgram->programId, "upperReflectionMap");
     glUniform1i(loc, 16); // Tell shader texture is in unit 16
     CHECKERROR;
+    
     glActiveTexture(GL_TEXTURE17); // Activate texture unit 17
     glBindTexture(GL_TEXTURE_2D, lowerReflectionRenderTarget.textureID); // Load texture into it
     CHECKERROR;
     loc = glGetUniformLocation(lightingProgram->programId, "lowerReflectionMap");
     glUniform1i(loc, 17); // Tell shader texture is in unit 17
+    CHECKERROR;
 
+    //glActiveTexture(GL_TEXTURE18);
     // Set the viewport, and clear the screen
     glViewport(0, 0, width, height);
     glClearColor(0.5, 0.5, 0.5, 1.0);
@@ -717,6 +728,10 @@ void Scene::DrawScene()
     glUniform1i(loc, reflectionMode);
     loc = glGetUniformLocation(programId, "mode");
     glUniform1i(loc, mode);
+    loc = glGetUniformLocation(programId, "textureMode");
+    glUniform1i(loc, texture_mode);
+    loc = glGetUniformLocation(programId, "drawFbo");
+    glUniform1i(loc, draw_fbo);
     loc = glGetUniformLocation(programId, "width");
     glUniform1i(loc, width);
     loc = glGetUniformLocation(programId, "height");
@@ -727,8 +742,8 @@ void Scene::DrawScene()
     objectRoot->Draw(lightingProgram, Identity);
     CHECKERROR; 
 
-    p_sky_dome->Unbind();
-    p_irr_map->Unbind();
+    //p_sky_dome->Unbind();
+    //p_irr_map->Unbind();
     // Turn off the shader
     lightingProgram->Unuse();
 

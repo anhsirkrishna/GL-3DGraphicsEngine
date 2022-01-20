@@ -60,7 +60,7 @@ public:
 
 	glm::vec3 reflectionEye;
 
-    int lightingMode = 3;
+    int lightingMode = 1;
 	int reflectionMode = 3;
     int mode; // Extra mode indicator hooked up to number keys and sent to shader
     
@@ -99,6 +99,8 @@ public:
     Texture *p_irr_map;
 
     int sky_dome_mode = 2;
+    int texture_mode = 0;
+    int draw_fbo = 3;
     // Options menu stuff
     bool show_demo_window;
 

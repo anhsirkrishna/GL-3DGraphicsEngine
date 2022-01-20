@@ -113,7 +113,7 @@ void Object::Draw(ShaderProgram* program, glm::mat4& objectTr)
             shape->DrawVAO();
     CHECKERROR;
 
-    glBindTexture(GL_TEXTURE_2D, 0);
+    //glBindTexture(GL_TEXTURE_2D, 0);
 
     // Recursivelyy draw each sub-objects, each with its own transformation.
     if (drawMe)

@@ -65,7 +65,7 @@ void Texture::Bind(const int unit, const int programId, const std::string& name)
     glUniform1i(loc, unit);
 }
 
-// Unbind a texture from a texture unit whne no longer needed.
+// Unbind a texture from a texture unit when no longer needed.
 void Texture::Unbind()
 {  
     glBindTexture(GL_TEXTURE_2D, 0);
