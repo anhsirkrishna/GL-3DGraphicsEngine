@@ -12,7 +12,7 @@ using namespace gl;
 
 #include "fbo.h"
 
-void FBO::CreateFBO(const int w, const int h)
+void FBO::CreateFBO(const int w, const int h, const int color_attachment_count)
 {
     width = w;
     height = h;
@@ -33,19 +33,20 @@ void FBO::CreateFBO(const int w, const int h)
     // GL_RGBA32F and GL_RGBA constants set this texture to be 32 bit
     // floats for each of the 4 components.  Many other choices are
     // possible.
-    glGenTextures(1, &textureID);
-    glBindTexture(GL_TEXTURE_2D, textureID);
-    glTexImage2D(GL_TEXTURE_2D, 0, (int)GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    for (int i = 0; i < color_attachment_count; i++) {
+        glGenTextures(1, &textureID[i]);
+        glBindTexture(GL_TEXTURE_2D, textureID[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, (int)GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, (int)GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, (int)GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (int)GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (int)GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, (int)GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, (int)GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (int)GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (int)GL_LINEAR);
 
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
-                              GL_TEXTURE_2D, textureID, 0);
-
+        glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, (gl::GLenum)((int)GL_COLOR_ATTACHMENT0_EXT + i),
+            GL_TEXTURE_2D, textureID[i], 0);
+    }
     // Check for completeness/correctness
     int status = (int)glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
     if (status != int(GL_FRAMEBUFFER_COMPLETE_EXT))
@@ -58,3 +59,15 @@ void FBO::CreateFBO(const int w, const int h)
 
 void FBO::Bind() { glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fboID); }
 void FBO::Unbind() { glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0); }
+
+void FBO::BindTexture(const int program_id, const int texture_unit, const char* var_name, const int color_attachment) {
+    glActiveTexture((gl::GLenum)(int)GL_TEXTURE0 + texture_unit); 
+    glBindTexture(GL_TEXTURE_2D, textureID[color_attachment]); // Load texture into it
+    int loc = glGetUniformLocation(program_id, var_name);
+    glUniform1i(loc, texture_unit);
+}
+
+void FBO::UnbindTexture(const int texture_unit) {
+    glActiveTexture((gl::GLenum)(int)GL_TEXTURE0 + texture_unit);
+    glBindTexture(GL_TEXTURE_2D, 0); // Load texture into it
+}

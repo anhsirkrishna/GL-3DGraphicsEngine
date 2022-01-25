@@ -204,6 +204,19 @@ void Scene::InitializeScene()
 	upperReflectionRenderTarget.CreateFBO(fbo_width, fbo_height);
 	lowerReflectionRenderTarget.CreateFBO(fbo_width, fbo_height);
 
+    // Create the shader program for deferred shading pass
+    gbufferProgram = new ShaderProgram();
+    gbufferProgram->AddShader("gbuffer.vert", GL_VERTEX_SHADER);
+    gbufferProgram->AddShader("gbuffer.frag", GL_FRAGMENT_SHADER);
+
+    glBindAttribLocation(gbufferProgram->programId, 0, "vertex");
+    glBindAttribLocation(gbufferProgram->programId, 1, "vertexNormal");
+    glBindAttribLocation(gbufferProgram->programId, 2, "vertexTexture");
+    glBindAttribLocation(gbufferProgram->programId, 3, "vertexTangent");
+    gbufferProgram->LinkProgram();
+
+    //Create the FBO for the gbuffer used in deferred shading
+    gbufferRenderTarget.CreateFBO(750, 750, 4);
 
     // Create all the Polygon shapes
     proceduralground = new ProceduralGround(grndSize, 400,
@@ -385,7 +398,11 @@ void Scene::DrawMenu()
             if (ImGui::MenuItem("Draw Shadow Map", "", draw_fbo == 0)) { draw_fbo = 0; }
             if (ImGui::MenuItem("Draw Upper Reflection Map ", "", draw_fbo == 1)) { draw_fbo = 1; }
             if (ImGui::MenuItem("Draw Lower Reflection Map", "", draw_fbo == 2)) { draw_fbo = 2; }
-            if (ImGui::MenuItem("Disable", "", draw_fbo == 3)) { draw_fbo = 3; }
+            if (ImGui::MenuItem("Draw World Position Map", "", draw_fbo == 3)) { draw_fbo = 3; }
+            if (ImGui::MenuItem("Draw Normal Map", "", draw_fbo == 4)) { draw_fbo = 4; }
+            if (ImGui::MenuItem("Draw Diffuse color Map", "", draw_fbo == 5)) { draw_fbo = 5; }
+            if (ImGui::MenuItem("Draw Specular color Map", "", draw_fbo == 6)) { draw_fbo = 6; }
+            if (ImGui::MenuItem("Disable", "", draw_fbo == 7)) { draw_fbo = 7; }
             ImGui::EndMenu();
         }
 
@@ -499,6 +516,45 @@ void Scene::DrawScene()
     int loc, programId;
 
     ////////////////////////////////////////////////////////////////////////////////
+    // Deferred Shading pass
+    ////////////////////////////////////////////////////////////////////////////////
+
+    // Choose the shadow shader
+    gbufferProgram->Use();
+    programId = gbufferProgram->programId;
+
+    // Set the viewport, and clear the screen
+    glViewport(0, 0, fbo_width, fbo_height);
+    gbufferRenderTarget.Bind();
+    glClearColor(0.5, 0.5, 0.5, 1.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    CHECKERROR;
+
+    GLenum bufs[4] = { GL_COLOR_ATTACHMENT0_EXT , GL_COLOR_ATTACHMENT1_EXT , GL_COLOR_ATTACHMENT2_EXT , GL_COLOR_ATTACHMENT3_EXT };
+    glDrawBuffers(4, bufs);
+
+    // @@ The scene specific parameters (uniform variables) used by
+    // the shader are set here.  Object specific parameters are set in
+    // the Draw procedure in object.cpp
+
+    loc = glGetUniformLocation(programId, "WorldProj");
+    glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(WorldProj));
+    loc = glGetUniformLocation(programId, "WorldView");
+    glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(WorldView));
+    CHECKERROR;
+
+    // Draw all objects (This recursively traverses the object hierarchy.)
+    objectRoot->Draw(gbufferProgram, Identity);
+    CHECKERROR;
+    gbufferRenderTarget.Unbind();
+    CHECKERROR;
+    // Turn off the shader
+    gbufferProgram->Unuse();
+    ////////////////////////////////////////////////////////////////////////////////
+    // End of G buffer pass
+    ////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////////
     // Shadow pass
     ////////////////////////////////////////////////////////////////////////////////
     glEnable(GL_CULL_FACE);
@@ -566,13 +622,8 @@ void Scene::DrawScene()
     p_irr_map->Bind(14, programId, "IrrMapTex");
     CHECKERROR;
 
-	glActiveTexture(GL_TEXTURE15); // Activate texture unit 15
-	glBindTexture(GL_TEXTURE_2D, shadowPassRenderTarget.textureID); // Load texture into it
-	CHECKERROR;
-	loc = glGetUniformLocation(reflectionProgram->programId, "shadowMap");
-	glUniform1i(loc, 15); // Tell shader texture is in unit 15
-	CHECKERROR;
-
+    shadowPassRenderTarget.BindTexture(reflectionProgram->programId, 15, "shadowMap");
+    CHECKERROR;
 	// Set the viewport, and clear the screen
 	glViewport(0, 0, fbo_width, fbo_height);
 	upperReflectionRenderTarget.Bind();
@@ -674,28 +725,20 @@ void Scene::DrawScene()
     p_irr_map->Bind(14, programId, "IrrMapTex");
     CHECKERROR;
 
-    glActiveTexture(GL_TEXTURE15); // Activate texture unit 15
-    glBindTexture(GL_TEXTURE_2D, shadowPassRenderTarget.textureID); // Load texture into it
-    CHECKERROR;
-    loc = glGetUniformLocation(lightingProgram->programId, "shadowMap");
-    glUniform1i(loc, 15); // Tell shader texture is in unit 15
-    CHECKERROR;
+    shadowPassRenderTarget.BindTexture(lightingProgram->programId, 15, "shadowMap");
     
-    glActiveTexture(GL_TEXTURE16); // Activate texture unit 16
-    glBindTexture(GL_TEXTURE_2D, upperReflectionRenderTarget.textureID); // Load texture into it
-    CHECKERROR;
-    loc = glGetUniformLocation(lightingProgram->programId, "upperReflectionMap");
-    glUniform1i(loc, 16); // Tell shader texture is in unit 16
-    CHECKERROR;
+    upperReflectionRenderTarget.BindTexture(lightingProgram->programId, 16, "upperReflectionMap");
     
-    glActiveTexture(GL_TEXTURE17); // Activate texture unit 17
-    glBindTexture(GL_TEXTURE_2D, lowerReflectionRenderTarget.textureID); // Load texture into it
-    CHECKERROR;
-    loc = glGetUniformLocation(lightingProgram->programId, "lowerReflectionMap");
-    glUniform1i(loc, 17); // Tell shader texture is in unit 17
-    CHECKERROR;
+    lowerReflectionRenderTarget.BindTexture(lightingProgram->programId, 17, "lowerReflectionMap");
 
-    //glActiveTexture(GL_TEXTURE18);
+    gbufferRenderTarget.BindTexture(lightingProgram->programId, 18, "gBufferWorldPos", 0);
+
+    gbufferRenderTarget.BindTexture(lightingProgram->programId, 19, "gBufferNormalVec", 1);
+
+    gbufferRenderTarget.BindTexture(lightingProgram->programId, 20, "gBufferDiffuse", 2);
+    
+    gbufferRenderTarget.BindTexture(lightingProgram->programId, 21, "gBufferSpecular", 3);
+
     // Set the viewport, and clear the screen
     glViewport(0, 0, width, height);
     glClearColor(0.5, 0.5, 0.5, 1.0);
@@ -742,8 +785,7 @@ void Scene::DrawScene()
     objectRoot->Draw(lightingProgram, Identity);
     CHECKERROR; 
 
-    //p_sky_dome->Unbind();
-    //p_irr_map->Unbind();
+    p_sky_dome->Unbind();
     // Turn off the shader
     lightingProgram->Unuse();
 

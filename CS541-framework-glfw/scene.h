@@ -84,10 +84,11 @@ public:
     ShaderProgram* lightingProgram;
     ShaderProgram* shadowProgram;
 	ShaderProgram* reflectionProgram;
+    ShaderProgram* gbufferProgram;
     // @@ Declare additional shaders if necessary
 
     //FBO decleration
-    FBO shadowPassRenderTarget, upperReflectionRenderTarget, lowerReflectionRenderTarget;
+    FBO shadowPassRenderTarget, upperReflectionRenderTarget, lowerReflectionRenderTarget, gbufferRenderTarget;
     int fbo_width, fbo_height;
 
     glm::mat4 BMatrix, ShadowMatrix;
@@ -100,7 +101,7 @@ public:
 
     int sky_dome_mode = 2;
     int texture_mode = 0;
-    int draw_fbo = 3;
+    int draw_fbo = 7;
     // Options menu stuff
     bool show_demo_window;
 

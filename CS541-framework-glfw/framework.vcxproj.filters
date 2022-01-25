@@ -1,0 +1,63 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="fbo.cpp" />
+    <ClCompile Include="framework.cpp" />
+    <ClCompile Include="libs\imgui-master\backends\imgui_impl_glfw.cpp" />
+    <ClCompile Include="libs\imgui-master\backends\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="libs\imgui-master\imgui.cpp" />
+    <ClCompile Include="libs\imgui-master\imgui_demo.cpp" />
+    <ClCompile Include="libs\imgui-master\imgui_draw.cpp" />
+    <ClCompile Include="libs\imgui-master\imgui_widgets.cpp" />
+    <ClCompile Include="rply.c" />
+    <ClCompile Include="scene.cpp" />
+    <ClCompile Include="shader.cpp" />
+    <ClCompile Include="texture.cpp" />
+    <ClCompile Include="interact.cpp" />
+    <ClCompile Include="object.cpp" />
+    <ClCompile Include="shapes.cpp" />
+    <ClCompile Include="simplexnoise.cpp" />
+    <ClCompile Include="transform.cpp" />
+    <ClCompile Include="emulator.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="libs\glfw\lib-vc2019\glfw3.lib" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="final.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="final.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="lighting.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="lighting.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="reflection.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="reflection.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shadow.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shadow.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="gbuffer.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="gbuffer.frag">
+      <Filter>Shaders</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{332c6695-9dec-49cd-88ba-ce74d1fbb2cf}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

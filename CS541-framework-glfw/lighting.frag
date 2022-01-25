@@ -230,5 +230,5 @@ vec3 LightingPixel()
     returnColor = (exposure*returnColor)/(exposure*returnColor + 1);
     returnColor = pow(returnColor, vec3(1/2.2));
 
-	return N;
+	return returnColor;
 }

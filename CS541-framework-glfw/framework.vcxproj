@@ -136,6 +136,8 @@
   <ItemGroup>
     <None Include="final.frag" />
     <None Include="final.vert" />
+    <None Include="gbuffer.frag" />
+    <None Include="gbuffer.vert" />
     <None Include="lighting.frag" />
     <None Include="lighting.vert" />
     <None Include="reflection.frag" />
