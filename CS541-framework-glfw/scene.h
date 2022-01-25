@@ -105,9 +105,13 @@ public:
     // Options menu stuff
     bool show_demo_window;
 
+    //Deferred shading reqs
+    GLuint screen_quad_vao;
+
     void InitializeScene();
     void BuildTransforms();
     void DrawMenu();
     void DrawScene();
-
+    void CreateFullScreenQuad();
+    void DrawFullScreenQuad();
 };

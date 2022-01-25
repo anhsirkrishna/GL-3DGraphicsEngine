@@ -11,10 +11,11 @@ public:
     unsigned int fboID;
     unsigned int textureID[4];
     int width, height;  // Size of the texture.
-
-    void CreateFBO(const int w, const int h, const int color_attachment_count=1);
+    unsigned int color_attachment_count;
+    void CreateFBO(const int w, const int h, const int _color_attachment_count=1);
     void Bind();
     void Unbind();
     void BindTexture(const int program_id, const int texture_unit, const char* var_name, const int color_attachment=0);
     void UnbindTexture(const int texture_unit);
+    void Resize(const int w, const int h);
 };

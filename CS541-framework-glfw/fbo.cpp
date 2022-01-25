@@ -12,11 +12,11 @@ using namespace gl;
 
 #include "fbo.h"
 
-void FBO::CreateFBO(const int w, const int h, const int color_attachment_count)
+void FBO::CreateFBO(const int w, const int h, const int _color_attachment_count)
 {
     width = w;
     height = h;
-
+    color_attachment_count = _color_attachment_count;
     glGenFramebuffersEXT(1, &fboID);
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fboID);
 
@@ -70,4 +70,18 @@ void FBO::BindTexture(const int program_id, const int texture_unit, const char* 
 void FBO::UnbindTexture(const int texture_unit) {
     glActiveTexture((gl::GLenum)(int)GL_TEXTURE0 + texture_unit);
     glBindTexture(GL_TEXTURE_2D, 0); // Load texture into it
+}
+
+void FBO::Resize(const int w, const int h) {
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fboID);
+    for (int i = 0; i < color_attachment_count; i++) {
+        glBindTexture(GL_TEXTURE_2D, textureID[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, (int)GL_RGBA32F, w, h, 0, GL_RGBA, GL_FLOAT, NULL);
+        glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, (gl::GLenum)((int)GL_COLOR_ATTACHMENT0_EXT + i),
+            GL_TEXTURE_2D, textureID[i], 0);
+    }
+    int status = (int)glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+    if (status != int(GL_FRAMEBUFFER_COMPLETE_EXT))
+        printf("FBO Error: %d\n", status);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }

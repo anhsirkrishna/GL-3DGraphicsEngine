@@ -161,8 +161,6 @@ void Scene::InitializeScene()
     lightingProgram = new ShaderProgram();
     lightingProgram->AddShader("final.vert", GL_VERTEX_SHADER);
 	lightingProgram->AddShader("final.frag", GL_FRAGMENT_SHADER);
-	lightingProgram->AddShader("lighting.vert", GL_VERTEX_SHADER);
-	lightingProgram->AddShader("lighting.frag", GL_FRAGMENT_SHADER);
 
     glBindAttribLocation(lightingProgram->programId, 0, "vertex");
     glBindAttribLocation(lightingProgram->programId, 1, "vertexNormal");
@@ -345,6 +343,8 @@ void Scene::InitializeScene()
     p_irr_map = new Texture(".\\textures\\Barce_Rooftop_C_3k.irr.hdr", true);
     //p_barca_sky = new Texture(".\\textures\\MonValley_A_LookoutPoint_2k.hdr");
     //p_irr_map = new Texture(".\\textures\\MonValley_A_LookoutPoint_2k.irr.hdr");
+    //Create a full screen quad to render for the deferred shading pass.
+    CreateFullScreenQuad();
 }
 
 void Scene::DrawMenu()
@@ -425,6 +425,50 @@ void Scene::DrawMenu()
     time_at_prev_frame = glfwGetTime();
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void Scene::CreateFullScreenQuad() {
+    //Create a VAO and put the ID in vao_id
+    glGenVertexArrays(1, &screen_quad_vao);
+    //Use the same VAO for all the following operations
+    glBindVertexArray(screen_quad_vao);
+
+    //Put a vertex consisting of 3 float coordinates x,y,z into the list of all vertices
+    std::vector<float> vertices = {
+        -1, -1, 0,
+        -1,  1, 0,
+         1,  1, 0,
+         1, -1, 0
+    };
+
+
+    //Create a continguous buffer for all the vertices/points
+    GLuint point_buffer;
+    glGenBuffers(1, &point_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, point_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertices.size(), &vertices[0], GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    CHECKERROR;
+
+    //IBO data
+    GLuint indexData[] = { 0, 1, 2, 3 };
+    //Create IBO
+    GLuint indeces_buffer;
+    glGenBuffers(1, &indeces_buffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indeces_buffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 4 * sizeof(GLuint), indexData, GL_STATIC_DRAW);
+    CHECKERROR;
+    glBindVertexArray(0);
+}
+
+void Scene::DrawFullScreenQuad() {
+    glBindVertexArray(screen_quad_vao);
+    CHECKERROR;
+    glDrawElements(GL_TRIANGLE_FAN, 4, GL_UNSIGNED_INT, 0);
+    CHECKERROR;
+    glBindVertexArray(0);
 }
 
 void Scene::BuildTransforms()
@@ -533,6 +577,21 @@ void Scene::DrawScene()
     GLenum bufs[4] = { GL_COLOR_ATTACHMENT0_EXT , GL_COLOR_ATTACHMENT1_EXT , GL_COLOR_ATTACHMENT2_EXT , GL_COLOR_ATTACHMENT3_EXT };
     glDrawBuffers(4, bufs);
 
+    //Bind the skydome texture
+    switch (sky_dome_mode)
+    {
+    case 0:
+        p_sky_dome->Bind(13, programId, "SkydomeTex");
+        break;
+    case 1:
+        p_sky_dome_cage->Bind(13, programId, "SkydomeTex");
+        break;
+    case 2:
+        p_barca_sky->Bind(13, programId, "SkydomeTex");
+        break;
+    }
+    CHECKERROR;
+
     // @@ The scene specific parameters (uniform variables) used by
     // the shader are set here.  Object specific parameters are set in
     // the Draw procedure in object.cpp
@@ -541,6 +600,12 @@ void Scene::DrawScene()
     glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(WorldProj));
     loc = glGetUniformLocation(programId, "WorldView");
     glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(WorldView));
+    loc = glGetUniformLocation(programId, "WorldInverse");
+    glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(WorldInverse));
+    loc = glGetUniformLocation(programId, "lightPos");
+    glUniform3fv(loc, 1, &(lightPos[0]));
+    loc = glGetUniformLocation(programId, "textureMode");
+    glUniform1i(loc, texture_mode);
     CHECKERROR;
 
     // Draw all objects (This recursively traverses the object hierarchy.)
@@ -781,8 +846,8 @@ void Scene::DrawScene()
     glUniform1i(loc, height);
     CHECKERROR;
 
-    // Draw all objects (This recursively traverses the object hierarchy.)
-    objectRoot->Draw(lightingProgram, Identity);
+    //Draw a full screen quad to activate every pixel shader
+    DrawFullScreenQuad();
     CHECKERROR; 
 
     p_sky_dome->Unbind();
