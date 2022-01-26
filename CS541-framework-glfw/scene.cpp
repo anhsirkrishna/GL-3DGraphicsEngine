@@ -216,6 +216,17 @@ void Scene::InitializeScene()
     //Create the FBO for the gbuffer used in deferred shading
     gbufferRenderTarget.CreateFBO(750, 750, 4);
 
+    // Create the shader program for Local lights pass
+    localLightsProgram = new ShaderProgram();
+    localLightsProgram->AddShader("local_lights.vert", GL_VERTEX_SHADER);
+    localLightsProgram->AddShader("local_lights.frag", GL_FRAGMENT_SHADER);
+
+    glBindAttribLocation(localLightsProgram->programId, 0, "vertex");
+    glBindAttribLocation(localLightsProgram->programId, 1, "vertexNormal");
+    glBindAttribLocation(localLightsProgram->programId, 2, "vertexTexture");
+    glBindAttribLocation(localLightsProgram->programId, 3, "vertexTangent");
+    localLightsProgram->LinkProgram();
+
     // Create all the Polygon shapes
     proceduralground = new ProceduralGround(grndSize, 400,
                                      grndOctaves, grndFreq, grndPersistence,
@@ -345,6 +356,8 @@ void Scene::InitializeScene()
     //p_irr_map = new Texture(".\\textures\\MonValley_A_LookoutPoint_2k.irr.hdr");
     //Create a full screen quad to render for the deferred shading pass.
     CreateFullScreenQuad();
+
+    CreateLocalLightsSpheres(SpherePolygons);
 }
 
 void Scene::DrawMenu()
@@ -469,6 +482,14 @@ void Scene::DrawFullScreenQuad() {
     glDrawElements(GL_TRIANGLE_FAN, 4, GL_UNSIGNED_INT, 0);
     CHECKERROR;
     glBindVertexArray(0);
+}
+
+void Scene::CreateLocalLightsSpheres(Shape* SpherePolygons) {
+    LocalLights = new Object(NULL, nullId);
+
+    Object* new_light = new Object(SpherePolygons, spheresId, glm::vec3(3.0, 3.0, 3.0), glm::vec3(1.0, 1.0, 1.0), 0.128); //phong alpha = 120
+    LocalLights->add(new_light, Translate(0, 0, 1));
+    local_light_range = 1.0f;
 }
 
 void Scene::BuildTransforms()
@@ -853,8 +874,74 @@ void Scene::DrawScene()
     p_sky_dome->Unbind();
     // Turn off the shader
     lightingProgram->Unuse();
-
     ////////////////////////////////////////////////////////////////////////////////
     // End of Lighting pass
+    ////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Local Lights pass
+    ////////////////////////////////////////////////////////////////////////////////
+
+    glDisable(GL_DEPTH_TEST);
+
+    glBlendFunc(GL_ONE, GL_ONE);
+    glEnable(GL_BLEND);
+
+    glCullFace(GL_FRONT);
+    glEnable(GL_CULL_FACE);
+
+    // Choose the lighting shader
+    localLightsProgram->Use();
+    programId = localLightsProgram->programId;
+    CHECKERROR;
+
+    gbufferRenderTarget.BindTexture(programId, 18, "gBufferWorldPos", 0);
+
+    gbufferRenderTarget.BindTexture(programId, 19, "gBufferNormalVec", 1);
+
+    gbufferRenderTarget.BindTexture(programId, 20, "gBufferDiffuse", 2);
+
+    gbufferRenderTarget.BindTexture(programId, 21, "gBufferSpecular", 3);
+
+    // Set the viewport, and clear the screen
+    //glViewport(0, 0, width, height);
+    //glClearColor(0.0, 0.0, 0.0, 0.0);
+    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    CHECKERROR;
+
+    // @@ The scene specific parameters (uniform variables) used by
+    // the shader are set here.  Object specific parameters are set in
+    // the Draw procedure in object.cpp
+
+    loc = glGetUniformLocation(programId, "WorldProj");
+    glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(WorldProj));
+    loc = glGetUniformLocation(programId, "WorldView");
+    glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(WorldView));
+    loc = glGetUniformLocation(programId, "WorldInverse");
+    glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(WorldInverse));
+    loc = glGetUniformLocation(programId, "ambient");
+    glUniform3fv(loc, 1, &(ambient[0]));
+    loc = glGetUniformLocation(programId, "lightingMode");
+    glUniform1i(loc, lightingMode);
+    loc = glGetUniformLocation(programId, "width");
+    glUniform1i(loc, width);
+    loc = glGetUniformLocation(programId, "height");
+    glUniform1i(loc, height);
+    CHECKERROR;
+
+    //Draw a full screen quad to activate every pixel shader
+    LocalLights->Draw(localLightsProgram, Identity);
+    CHECKERROR;
+
+    p_sky_dome->Unbind();
+    // Turn off the shader
+    glEnable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+    glDisable(GL_CULL_FACE);
+
+    localLightsProgram->Unuse();
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // End of Local Lights pass
     ////////////////////////////////////////////////////////////////////////////////
 }

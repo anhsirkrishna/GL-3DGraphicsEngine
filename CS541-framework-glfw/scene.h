@@ -79,12 +79,15 @@ public:
 
     std::vector<Object*> animated;
     ProceduralGround* proceduralground;
+    Object* LocalLights;
+    float local_light_range;
 
     // Shader programs
     ShaderProgram* lightingProgram;
     ShaderProgram* shadowProgram;
 	ShaderProgram* reflectionProgram;
     ShaderProgram* gbufferProgram;
+    ShaderProgram* localLightsProgram;
     // @@ Declare additional shaders if necessary
 
     //FBO decleration
@@ -114,4 +117,5 @@ public:
     void DrawScene();
     void CreateFullScreenQuad();
     void DrawFullScreenQuad();
+    void CreateLocalLightsSpheres(Shape* SpherePolygons);
 };

@@ -140,6 +140,8 @@
     <None Include="gbuffer.vert" />
     <None Include="lighting.frag" />
     <None Include="lighting.vert" />
+    <None Include="local_lights.frag" />
+    <None Include="local_lights.vert" />
     <None Include="reflection.frag" />
     <None Include="reflection.vert" />
     <None Include="shadow.frag" />
