@@ -12,6 +12,10 @@ static void error_callback(int error, const char* msg)
     fputs(msg, stderr);
 }
 
+void window_size_callback(GLFWwindow* window, int width, int height) {
+    scene.RebuildGbuffer(width, height);
+};
+
 ////////////////////////////////////////////////////////////////////////
 // Do the OpenGL/GLFW setup and then enter the interactive loop.
 int main(int argc, char** argv)
@@ -50,6 +54,7 @@ int main(int argc, char** argv)
     InitInteraction();
     scene.InitializeScene();
     
+    glfwSetWindowSizeCallback(scene.window, window_size_callback);
     // Enter the event loop.
     while (!glfwWindowShouldClose(scene.window)) {
         glfwPollEvents();

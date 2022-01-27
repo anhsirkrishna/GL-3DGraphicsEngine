@@ -12,6 +12,8 @@ using namespace gl;
 
 #include "fbo.h"
 
+
+
 void FBO::CreateFBO(const int w, const int h, const int _color_attachment_count)
 {
     width = w;
@@ -70,6 +72,14 @@ void FBO::BindTexture(const int program_id, const int texture_unit, const char* 
 void FBO::UnbindTexture(const int texture_unit) {
     glActiveTexture((gl::GLenum)(int)GL_TEXTURE0 + texture_unit);
     glBindTexture(GL_TEXTURE_2D, 0); // Load texture into it
+}
+
+void FBO::DeleteFBO() {
+    if (fboID == 0)
+        return;
+
+    glDeleteTextures(color_attachment_count, textureID);
+    glDeleteFramebuffers(1, &fboID);
 }
 
 void FBO::Resize(const int w, const int h) {

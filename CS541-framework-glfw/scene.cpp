@@ -356,8 +356,7 @@ void Scene::InitializeScene()
     //p_irr_map = new Texture(".\\textures\\MonValley_A_LookoutPoint_2k.irr.hdr");
     //Create a full screen quad to render for the deferred shading pass.
     CreateFullScreenQuad();
-
-    CreateLocalLightsSpheres(SpherePolygons);
+    CreateLocalLights(SpherePolygons);
 }
 
 void Scene::DrawMenu()
@@ -448,10 +447,10 @@ void Scene::CreateFullScreenQuad() {
 
     //Put a vertex consisting of 3 float coordinates x,y,z into the list of all vertices
     std::vector<float> vertices = {
-        -1, -1, 0,
         -1,  1, 0,
-         1,  1, 0,
-         1, -1, 0
+        -1, -1, 0,
+         1, -1, 0,
+         1,  1, 0
     };
 
 
@@ -484,12 +483,43 @@ void Scene::DrawFullScreenQuad() {
     glBindVertexArray(0);
 }
 
-void Scene::CreateLocalLightsSpheres(Shape* SpherePolygons) {
-    LocalLights = new Object(NULL, nullId);
+void Scene::CreateLocalLights(Shape* SpherePolygons) {
+    
+    for (int i = -250; i <= 250; i+=5) {
+        for (int j = -250; j <= 250; j+=5) {
+            Object* new_light = new Object(SpherePolygons, spheresId, glm::vec3(10.0, 10.0, 10.0), glm::vec3(1.0, 1.0, 1.0), 0.128); //phong alpha = 120
+            LocalLights.push_back(new_light);
+            local_light_positions.push_back(glm::vec3(i, j, 2));
+            local_light_radii.push_back(4.0);
+        }
+    }
+}
 
-    Object* new_light = new Object(SpherePolygons, spheresId, glm::vec3(3.0, 3.0, 3.0), glm::vec3(1.0, 1.0, 1.0), 0.128); //phong alpha = 120
-    LocalLights->add(new_light, Translate(0, 0, 1));
-    local_light_range = 1.0f;
+void Scene::DrawLocalLights(ShaderProgram* program) {
+    int loc;
+    glm::vec3 local_light_pos;
+    float local_light_radius;
+    for (int i = 0; i < LocalLights.size(); i++) {
+        local_light_pos = local_light_positions[i];
+        local_light_radius = local_light_radii[i];
+        CHECKERROR;
+        loc = glGetUniformLocation(program->programId, "localLightPos");
+        CHECKERROR;
+        glUniform3fv(loc, 1, &(local_light_pos[0]));
+        CHECKERROR;
+        loc = glGetUniformLocation(program->programId, "localLightRadius");
+        CHECKERROR;
+        glUniform1f(loc, local_light_radius);
+        CHECKERROR;
+        LocalLights[i]->Draw(program, Translate(local_light_pos.x, local_light_pos.y, local_light_pos.z) * 
+                                        Scale(local_light_radius, local_light_radius, local_light_radius));
+        CHECKERROR;
+    }
+}
+
+void Scene::RebuildGbuffer(int w, int h){
+    gbufferRenderTarget.DeleteFBO();
+    gbufferRenderTarget.CreateFBO(w, h, 4);
 }
 
 void Scene::BuildTransforms()
@@ -589,7 +619,7 @@ void Scene::DrawScene()
     programId = gbufferProgram->programId;
 
     // Set the viewport, and clear the screen
-    glViewport(0, 0, fbo_width, fbo_height);
+    glViewport(0, 0, width, height);
     gbufferRenderTarget.Bind();
     glClearColor(0.5, 0.5, 0.5, 1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -902,11 +932,6 @@ void Scene::DrawScene()
     gbufferRenderTarget.BindTexture(programId, 20, "gBufferDiffuse", 2);
 
     gbufferRenderTarget.BindTexture(programId, 21, "gBufferSpecular", 3);
-
-    // Set the viewport, and clear the screen
-    //glViewport(0, 0, width, height);
-    //glClearColor(0.0, 0.0, 0.0, 0.0);
-    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     CHECKERROR;
 
     // @@ The scene specific parameters (uniform variables) used by
@@ -930,7 +955,7 @@ void Scene::DrawScene()
     CHECKERROR;
 
     //Draw a full screen quad to activate every pixel shader
-    LocalLights->Draw(localLightsProgram, Identity);
+    DrawLocalLights(localLightsProgram);
     CHECKERROR;
 
     p_sky_dome->Unbind();

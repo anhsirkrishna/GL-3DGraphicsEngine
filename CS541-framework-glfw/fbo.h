@@ -8,8 +8,8 @@
 
 class FBO {
 public:
-    unsigned int fboID;
-    unsigned int textureID[4];
+    unsigned int fboID=0;
+    unsigned int textureID[4] = {0, 0, 0, 0};
     int width, height;  // Size of the texture.
     unsigned int color_attachment_count;
     void CreateFBO(const int w, const int h, const int _color_attachment_count=1);
@@ -18,4 +18,5 @@ public:
     void BindTexture(const int program_id, const int texture_unit, const char* var_name, const int color_attachment=0);
     void UnbindTexture(const int texture_unit);
     void Resize(const int w, const int h);
+    void DeleteFBO();
 };

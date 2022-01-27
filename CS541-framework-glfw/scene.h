@@ -79,7 +79,9 @@ public:
 
     std::vector<Object*> animated;
     ProceduralGround* proceduralground;
-    Object* LocalLights;
+    std::vector<Object*> LocalLights;
+    std::vector<glm::vec3> local_light_positions;
+    std::vector<float> local_light_radii;
     float local_light_range;
 
     // Shader programs
@@ -117,5 +119,7 @@ public:
     void DrawScene();
     void CreateFullScreenQuad();
     void DrawFullScreenQuad();
-    void CreateLocalLightsSpheres(Shape* SpherePolygons);
+    void CreateLocalLights(Shape* SpherePolygons);
+    void DrawLocalLights(ShaderProgram* program);
+    void RebuildGbuffer(int w, int h);
 };
