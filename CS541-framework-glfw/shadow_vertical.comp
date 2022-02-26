@@ -26,7 +26,7 @@ void main() {
 	// Combo of groupID, groupSize and localID
 	ivec2 gpos = ivec2(gl_GlobalInvocationID.xy); 
 	// Local thread id in the 128x1 thread groups128x1
-	uint i = gl_LocalInvocationID.x;
+	uint i = gl_LocalInvocationID.y;
 	// read an image pixel at an ivec2(.,.) position
 	v[i] = imageLoad(src, gpos+ivec2(0, -width));
 
@@ -40,10 +40,8 @@ void main() {
 
 	vec4 sum = vec4(0.0f);
 	for(unsigned int k=0; k <= 2*width; ++k) {
-		//sum += v[i+k] * weights[k];
-		sum += v[i+k];
+		sum += v[i+k] * weights[k];
 	}
-	sum = sum/(2*width+1);
-	sum = v[i];
+
 	imageStore(dst, gpos, sum); // Write to destination image
 }

@@ -39,10 +39,8 @@ void main() {
 
 	vec4 sum = vec4(0.0f);
 	for(unsigned int k=0; k <= 2*width; ++k) {
-		//sum += v[i+k] * weights[k];
-		sum += v[i+k];
+		sum += v[i+k] * weights[k];
 	}
-	sum = sum/(2*width+1);
-	sum = v[i];
+
 	imageStore(dst, gpos, sum); // Write to destination image
 }

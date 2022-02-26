@@ -223,29 +223,18 @@ void Scene::InitializeScene()
     shadowBlur_V_Program->LinkProgram();
 
     glGenBuffers(1, &blur_kernel_block_id); // Generates block 
-    int bindpoint = 0 ; // Start at zero, increment for other blocks
+    int bindpoint = 0; // Start at zero, increment for other blocks
+
+    glBindBuffer(GL_UNIFORM_BUFFER, blur_kernel_block_id);
+    glBindBufferBase(GL_UNIFORM_BUFFER, bindpoint, blur_kernel_block_id);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(float) * 101, NULL, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
     GLuint loc = glGetUniformBlockIndex(shadowBlur_H_Program->programId, "blurKernel");
     glUniformBlockBinding(shadowBlur_H_Program->programId, loc, bindpoint);
 
     loc = glGetUniformBlockIndex(shadowBlur_V_Program->programId, "blurKernel");
     glUniformBlockBinding(shadowBlur_V_Program->programId, loc, bindpoint);
-
-    glBindBuffer(GL_UNIFORM_BUFFER, blur_kernel_block_id);
-    glBindBufferBase(GL_UNIFORM_BUFFER, bindpoint, blur_kernel_block_id);
-    float kernel_vals[7];
-    float exponent;
-    float sum = 0;
-    for (int i = -3; i <= 3; ++i) {
-        exponent = (pow(i / (3.0f / 2.0f), 2) * (-1.0f / 2.0f));
-        kernel_vals[i+3] = pow(glm::e<float>(), exponent);
-        sum += kernel_vals[i + 3];
-    }
-    float beta = 1 / sum;
-    for (int i = -3; i <= 3; ++i) {
-        kernel_vals[i + 3] *= beta;
-    }
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(float) * 7, kernel_vals, GL_STATIC_DRAW);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
     //Create the FBO as the output texture for the shadow blue
     shadowBlurOutput.CreateFBO(fbo_width, fbo_height);
@@ -461,8 +450,14 @@ void Scene::DrawMenu()
             ImGui::EndMenu();
         }
 
-        ImGui::EndMainMenuBar(); }
+        
 
+    ImGui::EndMainMenuBar(); 
+    }
+
+    ImGui::Begin("Shadow Kernel Control");
+    ImGui::SliderInt("Shadow Blur Kernel", &kernel_width, 2, 50);
+    ImGui::End();
     
     if (gamelike_mode == true) {
         const float step = speed * (glfwGetTime() - time_at_prev_frame);
@@ -768,8 +763,15 @@ void Scene::DrawScene()
     
     shadowBlur_H_Program->Use();
 
+    RecalculateKernel();
+
+    glBindBuffer(GL_ARRAY_BUFFER, blur_kernel_block_id);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, kernel_vals.size() * sizeof(float), &kernel_vals[0]);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    CHECKERROR;
+
     loc = glGetUniformLocation(shadowBlur_H_Program->programId, "width");
-    glUniform1i(loc, 3);
+    glUniform1i(loc, kernel_width);
 
 
     GLuint imageUnit = 0 ; // Perhaps 0 for input image and 1 for output image
@@ -792,7 +794,7 @@ void Scene::DrawScene()
     shadowBlur_V_Program->Use();
 
     loc = glGetUniformLocation(shadowBlur_V_Program->programId, "width");
-    glUniform1i(loc, 3);
+    glUniform1i(loc, kernel_width);
 
     imageUnit = 0; // Perhaps 0 for input image and 1 for output image
     loc = glGetUniformLocation(shadowBlur_V_Program->programId, "src");
@@ -1077,4 +1079,20 @@ void Scene::DrawScene()
     ////////////////////////////////////////////////////////////////////////////////
     // End of Local Lights pass
     ////////////////////////////////////////////////////////////////////////////////
+}
+
+
+void Scene::RecalculateKernel() {
+    kernel_vals.clear();
+    float exponent;
+    float sum = 0;
+    for (int i = -kernel_width; i <= kernel_width; ++i) {
+        exponent = (pow(i / (kernel_width / 2.0f), 2) * (-1.0f / 2.0f));
+        kernel_vals.push_back(pow(glm::e<float>(), exponent));
+        sum += kernel_vals.back();
+    }
+    float beta = 1 / sum;
+    for (unsigned int i = 0; i < kernel_vals.size(); ++i) {
+        kernel_vals[i] *= beta;
+    }
 }

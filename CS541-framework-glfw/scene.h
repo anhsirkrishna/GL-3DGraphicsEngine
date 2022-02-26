@@ -119,6 +119,8 @@ public:
     int shadow_blur_kernel_width;
     GLuint blur_kernel_block_id;
     FBO shadowBlurOutput;
+    int kernel_width = 3;
+    std::vector<float> kernel_vals;
 
     void InitializeScene();
     void BuildTransforms();
@@ -129,4 +131,5 @@ public:
     void CreateLocalLights(Shape* SpherePolygons);
     void DrawLocalLights(ShaderProgram* program);
     void RebuildGbuffer(int w, int h);
+    void RecalculateKernel();
 };
