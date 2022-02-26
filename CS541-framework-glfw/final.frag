@@ -73,11 +73,11 @@ void main()
         float light_depth = 1000;
         if (shadowIndex.x >= 0 && shadowIndex.x <= 1){
             if (shadowIndex.y >= 0 && shadowIndex.y <= 1){
-                light_depth = texture2D(shadowMap, shadowIndex).w;
+                light_depth = texture2D(shadowMap, shadowIndex).x;
                 pixel_depth = shadowCoord.w;
             }
         }
-        light_depth = texture2D(shadowMap, uv).w;
+        light_depth = texture2D(shadowMap, uv).x;
         light_depth = light_depth/800;
         FragColor.x = light_depth;
         FragColor.y = FragColor.x;
@@ -124,7 +124,7 @@ void main()
     light_depth = 1000;
     if (shadowIndex.x >= 0 && shadowIndex.x <= 1){
         if (shadowIndex.y >= 0 && shadowIndex.y <= 1){
-            light_depth = texture2D(shadowMap, shadowIndex).w;
+            light_depth = texture2D(shadowMap, shadowIndex).x;
             pixel_depth = shadowCoord.w;
         }
     }

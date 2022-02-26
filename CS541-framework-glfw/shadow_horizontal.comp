@@ -1,0 +1,48 @@
+/////////////////////////////////////////////////////////////////////////
+// Compute shader for shadow map blurring
+////////////////////////////////////////////////////////////////////////
+#version 430
+
+// Declares thread group size
+layout (local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
+
+// Declares a uniform block
+uniform blurKernel {
+	float weights[101]; 
+};
+
+//src image as 4 channel 32bit float readonly
+layout (rgba32f) uniform readonly image2D src;
+// dst image as 4 channel 32bit float writeonly
+layout (rgba32f) uniform writeonly image2D dst;
+
+// Variable shared with other threads in the 128x1 thread group
+shared vec4 v[128+101];
+
+uniform int width;
+
+void main() {
+
+	// Combo of groupID, groupSize and localID
+	ivec2 gpos = ivec2(gl_GlobalInvocationID.xy); 
+	// Local thread id in the 128x1 thread groups128x1
+	uint i = gl_LocalInvocationID.x;
+	// read an image pixel at an ivec2(.,.) position
+	v[i] = imageLoad(src, gpos+ivec2(-width, 0));
+
+	// read extra 2*w pixels
+	if (i<2*width)
+		v[i+128] = imageLoad(src, gpos+ivec2(128-width, 0));
+	v[i] = imageLoad(src, gpos);
+	// Wait for all threads to catchup before reading v[]
+	barrier();
+
+	vec4 sum = vec4(0.0f);
+	for(unsigned int k=0; k <= 2*width; ++k) {
+		//sum += v[i+k] * weights[k];
+		sum += v[i+k];
+	}
+	sum = sum/(2*width+1);
+	sum = v[i];
+	imageStore(dst, gpos, sum); // Write to destination image
+}

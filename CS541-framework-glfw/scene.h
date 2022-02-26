@@ -90,6 +90,8 @@ public:
 	ShaderProgram* reflectionProgram;
     ShaderProgram* gbufferProgram;
     ShaderProgram* localLightsProgram;
+    ShaderProgram* shadowBlur_H_Program;
+    ShaderProgram* shadowBlur_V_Program;
     // @@ Declare additional shaders if necessary
 
     //FBO decleration
@@ -105,13 +107,18 @@ public:
     Texture *p_irr_map;
 
     int sky_dome_mode = 2;
-    int texture_mode = 0;
+    int texture_mode = 1;
     int draw_fbo = 7;
+    int local_lights_on = 1;
     // Options menu stuff
     bool show_demo_window;
 
     //Deferred shading reqs
     GLuint screen_quad_vao;
+
+    int shadow_blur_kernel_width;
+    GLuint blur_kernel_block_id;
+    FBO shadowBlurOutput;
 
     void InitializeScene();
     void BuildTransforms();

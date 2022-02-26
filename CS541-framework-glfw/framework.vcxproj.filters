@@ -60,6 +60,12 @@
     <None Include="local_lights.frag">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="shadow_horizontal.comp">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shadow_vertical.comp">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">

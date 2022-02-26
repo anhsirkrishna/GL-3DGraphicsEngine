@@ -149,7 +149,7 @@ vec3 LightingPixel()
     light_depth = 1000;
     if (shadowIndex.x >= 0 && shadowIndex.x <= 1){
         if (shadowIndex.y >= 0 && shadowIndex.y <= 1){
-            light_depth = texture2D(shadowMap, shadowIndex).w;
+            light_depth = texture2D(shadowMap, shadowIndex).x;
             pixel_depth = shadowCoord.w;
         }
     }

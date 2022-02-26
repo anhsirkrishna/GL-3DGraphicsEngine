@@ -11,5 +11,8 @@ uniform int debugMode;
 
 void main()
 {
-    gl_FragData[0] = position;
+    gl_FragData[0].x = position.w;
+    gl_FragData[0].y = pow(position.w, 2);
+    gl_FragData[0].z = pow(position.w, 3);
+    gl_FragData[0].w = pow(position.w, 4);
 }

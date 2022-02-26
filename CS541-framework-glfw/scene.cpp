@@ -213,6 +213,43 @@ void Scene::InitializeScene()
     glBindAttribLocation(gbufferProgram->programId, 3, "vertexTangent");
     gbufferProgram->LinkProgram();
 
+    // Create the compute shader program for shadow map blur
+    shadowBlur_H_Program = new ShaderProgram();
+    shadowBlur_H_Program->AddShader("shadow_horizontal.comp", GL_COMPUTE_SHADER);
+    shadowBlur_H_Program->LinkProgram();
+
+    shadowBlur_V_Program = new ShaderProgram();
+    shadowBlur_V_Program->AddShader("shadow_vertical.comp", GL_COMPUTE_SHADER);
+    shadowBlur_V_Program->LinkProgram();
+
+    glGenBuffers(1, &blur_kernel_block_id); // Generates block 
+    int bindpoint = 0 ; // Start at zero, increment for other blocks
+    GLuint loc = glGetUniformBlockIndex(shadowBlur_H_Program->programId, "blurKernel");
+    glUniformBlockBinding(shadowBlur_H_Program->programId, loc, bindpoint);
+
+    loc = glGetUniformBlockIndex(shadowBlur_V_Program->programId, "blurKernel");
+    glUniformBlockBinding(shadowBlur_V_Program->programId, loc, bindpoint);
+
+    glBindBuffer(GL_UNIFORM_BUFFER, blur_kernel_block_id);
+    glBindBufferBase(GL_UNIFORM_BUFFER, bindpoint, blur_kernel_block_id);
+    float kernel_vals[7];
+    float exponent;
+    float sum = 0;
+    for (int i = -3; i <= 3; ++i) {
+        exponent = (pow(i / (3.0f / 2.0f), 2) * (-1.0f / 2.0f));
+        kernel_vals[i+3] = pow(glm::e<float>(), exponent);
+        sum += kernel_vals[i + 3];
+    }
+    float beta = 1 / sum;
+    for (int i = -3; i <= 3; ++i) {
+        kernel_vals[i + 3] *= beta;
+    }
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(float) * 7, kernel_vals, GL_STATIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+    //Create the FBO as the output texture for the shadow blue
+    shadowBlurOutput.CreateFBO(fbo_width, fbo_height);
+
     //Create the FBO for the gbuffer used in deferred shading
     gbufferRenderTarget.CreateFBO(750, 750, 4);
 
@@ -382,6 +419,12 @@ void Scene::DrawMenu()
             ImGui::EndMenu();
         }
 
+        if (ImGui::BeginMenu("Local Lights ")) {
+            if (ImGui::MenuItem("On", "", local_lights_on == 1)) { local_lights_on = 1; }
+            if (ImGui::MenuItem("Off", "", local_lights_on == 0)) { local_lights_on = 0; }
+            ImGui::EndMenu();
+        }
+
 		if (ImGui::BeginMenu("Reflection ")) {
 			if (ImGui::MenuItem("Mirror", "", reflectionMode == 0)) { reflectionMode = 0; }
 			if (ImGui::MenuItem("Mixed Color BRDF", "", reflectionMode == 1)) { reflectionMode = 1; }
@@ -484,13 +527,21 @@ void Scene::DrawFullScreenQuad() {
 }
 
 void Scene::CreateLocalLights(Shape* SpherePolygons) {
-    
-    for (int i = -250; i <= 250; i+=5) {
-        for (int j = -250; j <= 250; j+=5) {
+    for (int i = -200; i <= 200; i+=5) {
+        for (int j = -200; j <= 200; j+=5) {
             Object* new_light = new Object(SpherePolygons, spheresId, glm::vec3(10.0, 10.0, 10.0), glm::vec3(1.0, 1.0, 1.0), 0.128); //phong alpha = 120
             LocalLights.push_back(new_light);
             local_light_positions.push_back(glm::vec3(i, j, 2));
             local_light_radii.push_back(4.0);
+        }
+    }
+
+    for (int i = -12; i <= 12; i+=6) {
+        for (int j = -12; j <= 12; j+=6) {
+            Object* new_light = new Object(SpherePolygons, spheresId, glm::vec3(10.0, 10.0, 10.0), glm::vec3(1.0, 1.0, 1.0), 0.128); //phong alpha = 120
+            LocalLights.push_back(new_light);
+            local_light_positions.push_back(glm::vec3(i, j, 3));
+            local_light_radii.push_back(10.0);
         }
     }
 }
@@ -711,6 +762,60 @@ void Scene::DrawScene()
     // End of Shadow pass
     ////////////////////////////////////////////////////////////////////////////////
 
+    ////////////////////////////////////////////////////////////////////////////////
+    // Shadow pass blur
+    ////////////////////////////////////////////////////////////////////////////////
+    
+    shadowBlur_H_Program->Use();
+
+    loc = glGetUniformLocation(shadowBlur_H_Program->programId, "width");
+    glUniform1i(loc, 3);
+
+
+    GLuint imageUnit = 0 ; // Perhaps 0 for input image and 1 for output image
+    loc = glGetUniformLocation(shadowBlur_H_Program->programId, "src");
+    glBindImageTexture(imageUnit, shadowPassRenderTarget.textureID[0],
+                       0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glUniform1i(loc, imageUnit);
+
+
+    imageUnit = 1; // Perhaps 0 for input image and 1 for output image
+    loc = glGetUniformLocation(shadowBlur_H_Program->programId, "dst");
+    glBindImageTexture(imageUnit, shadowBlurOutput.textureID[0],
+                       0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glUniform1i(loc, imageUnit);
+    // Tiles WxH image with groups sized 128x1
+    glDispatchCompute(fbo_width / 128, fbo_height, 1);
+
+    shadowBlur_H_Program->Unuse();
+
+    shadowBlur_V_Program->Use();
+
+    loc = glGetUniformLocation(shadowBlur_V_Program->programId, "width");
+    glUniform1i(loc, 3);
+
+    imageUnit = 0; // Perhaps 0 for input image and 1 for output image
+    loc = glGetUniformLocation(shadowBlur_V_Program->programId, "src");
+    glBindImageTexture(imageUnit, shadowBlurOutput.textureID[0],
+        0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glUniform1i(loc, imageUnit);
+
+
+    imageUnit = 1; // Perhaps 0 for input image and 1 for output image
+    loc = glGetUniformLocation(shadowBlur_V_Program->programId, "dst");
+    glBindImageTexture(imageUnit, shadowPassRenderTarget.textureID[0],
+        0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glUniform1i(loc, imageUnit);
+    // Set all uniform and image variables
+    // Tiles WxH image with groups sized 128x1
+    glDispatchCompute(fbo_width, fbo_height / 128, 1);
+
+    shadowBlur_V_Program->Unuse();
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // End of Shadow pass blur
+    ////////////////////////////////////////////////////////////////////////////////
+
 	////////////////////////////////////////////////////////////////////////////////
 	// Reflection pass 1
 	////////////////////////////////////////////////////////////////////////////////
@@ -907,6 +1012,9 @@ void Scene::DrawScene()
     ////////////////////////////////////////////////////////////////////////////////
     // End of Lighting pass
     ////////////////////////////////////////////////////////////////////////////////
+
+    if (local_lights_on == 0)
+        return; //Skip local lights pass
 
     ////////////////////////////////////////////////////////////////////////////////
     // Local Lights pass
