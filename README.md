@@ -1,4 +1,4 @@
-# CS541 - Custom 3D graphics engine using OpenGL DigiPen Institute of Technology © 2022
+# CS541 - Custom 3D graphics engine using OpenGL || DigiPen Institute of Technology © 2022
 
 Custom 3D graphics engine using OpenGL. I implement several features using a multi pass rendering pipeline:
 1) Lighting using both Phong and BRDF algorithms. 
