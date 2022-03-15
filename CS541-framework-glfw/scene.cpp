@@ -440,13 +440,16 @@ void Scene::DrawMenu()
 
         if (ImGui::BeginMenu("Draw FBOs")) {
             if (ImGui::MenuItem("Draw Shadow Map", "", draw_fbo == 0)) { draw_fbo = 0; }
-            if (ImGui::MenuItem("Draw Upper Reflection Map ", "", draw_fbo == 1)) { draw_fbo = 1; }
-            if (ImGui::MenuItem("Draw Lower Reflection Map", "", draw_fbo == 2)) { draw_fbo = 2; }
-            if (ImGui::MenuItem("Draw World Position Map", "", draw_fbo == 3)) { draw_fbo = 3; }
-            if (ImGui::MenuItem("Draw Normal Map", "", draw_fbo == 4)) { draw_fbo = 4; }
-            if (ImGui::MenuItem("Draw Diffuse color Map", "", draw_fbo == 5)) { draw_fbo = 5; }
-            if (ImGui::MenuItem("Draw Specular color Map", "", draw_fbo == 6)) { draw_fbo = 6; }
-            if (ImGui::MenuItem("Disable", "", draw_fbo == 7)) { draw_fbo = 7; }
+            if (ImGui::MenuItem("Draw Shadow Map squared", "", draw_fbo == 1)) { draw_fbo = 1; }
+            if (ImGui::MenuItem("Draw Shadow Map cubed", "", draw_fbo == 2)) { draw_fbo = 2; }
+            if (ImGui::MenuItem("Draw Shadow Map pow 4", "", draw_fbo == 3)) { draw_fbo = 3; }
+            if (ImGui::MenuItem("Draw Upper Reflection Map ", "", draw_fbo == 4)) { draw_fbo = 4; }
+            if (ImGui::MenuItem("Draw Lower Reflection Map", "", draw_fbo == 5)) { draw_fbo = 5; }
+            if (ImGui::MenuItem("Draw World Position Map", "", draw_fbo == 6)) { draw_fbo = 6; }
+            if (ImGui::MenuItem("Draw Normal Map", "", draw_fbo == 7)) { draw_fbo = 7; }
+            if (ImGui::MenuItem("Draw Diffuse color Map", "", draw_fbo == 8)) { draw_fbo = 8; }
+            if (ImGui::MenuItem("Draw Specular color Map", "", draw_fbo == 9)) { draw_fbo = 9; }
+            if (ImGui::MenuItem("Disable", "", draw_fbo == 10)) { draw_fbo = 10; }
             ImGui::EndMenu();
         }
 
@@ -457,6 +460,7 @@ void Scene::DrawMenu()
 
     ImGui::Begin("Shadow Kernel Control");
     ImGui::SliderInt("Shadow Blur Kernel", &kernel_width, 2, 50);
+    ImGui::Text("LightDist : %f", lightDist);
     ImGui::End();
     
     if (gamelike_mode == true) {
@@ -743,6 +747,13 @@ void Scene::DrawScene()
     glUniformMatrix4fv(loc, 1, GL_FALSE, Pntr(LightView));
     loc = glGetUniformLocation(programId, "debugMode");
     glUniform1i(loc, debug_mode);
+
+    float min_depth = lightDist - 25;
+    float max_depth = lightDist + 25;
+    loc = glGetUniformLocation(programId, "min_depth");
+    glUniform1f(loc, min_depth);
+    loc = glGetUniformLocation(programId, "max_depth");
+    glUniform1f(loc, max_depth);
     CHECKERROR;
 
     // Draw all objects (This recursively traverses the object hierarchy.)
@@ -787,7 +798,7 @@ void Scene::DrawScene()
                        0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
     glUniform1i(loc, imageUnit);
     // Tiles WxH image with groups sized 128x1
-    glDispatchCompute(fbo_width / 128, fbo_height, 1);
+    glDispatchCompute(glm::ceil(fbo_width / 128.0f), fbo_height, 1);
 
     shadowBlur_H_Program->Unuse();
 
@@ -810,7 +821,7 @@ void Scene::DrawScene()
     glUniform1i(loc, imageUnit);
     // Set all uniform and image variables
     // Tiles WxH image with groups sized 128x1
-    glDispatchCompute(fbo_width, fbo_height / 128, 1);
+    glDispatchCompute(fbo_width, glm::ceil(fbo_height / 128.0f), 1);
 
     shadowBlur_V_Program->Unuse();
 
@@ -1003,6 +1014,11 @@ void Scene::DrawScene()
     loc = glGetUniformLocation(programId, "height");
     glUniform1i(loc, height);
     CHECKERROR;
+
+    loc = glGetUniformLocation(programId, "min_depth");
+    glUniform1f(loc, min_depth);
+    loc = glGetUniformLocation(programId, "max_depth");
+    glUniform1f(loc, max_depth);
 
     //Draw a full screen quad to activate every pixel shader
     DrawFullScreenQuad();

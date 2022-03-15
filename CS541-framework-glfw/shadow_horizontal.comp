@@ -28,12 +28,12 @@ void main() {
 	// Local thread id in the 128x1 thread groups128x1
 	uint i = gl_LocalInvocationID.x;
 	// read an image pixel at an ivec2(.,.) position
-	v[i] = imageLoad(src, gpos+ivec2(-width, 0));
+	v[i] = imageLoad(src, gpos + ivec2(-width, 0));
 
 	// read extra 2*w pixels
 	if (i<2*width)
-		v[i+128] = imageLoad(src, gpos+ivec2(128-width, 0));
-	v[i] = imageLoad(src, gpos);
+		v[i+128] = imageLoad(src, gpos + ivec2(128-width, 0));
+
 	// Wait for all threads to catchup before reading v[]
 	barrier();
 

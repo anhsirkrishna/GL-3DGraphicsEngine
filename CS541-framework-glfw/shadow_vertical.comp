@@ -34,7 +34,6 @@ void main() {
 	if (i<2*width)
 		v[i+128] = imageLoad(src, gpos+ivec2(0, 128-width));
  
-	v[i] = imageLoad(src, gpos);
 	// Wait for all threads to catchup before reading v[]
 	barrier();
 

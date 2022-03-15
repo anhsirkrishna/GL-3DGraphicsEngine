@@ -108,7 +108,7 @@ public:
 
     int sky_dome_mode = 2;
     int texture_mode = 1;
-    int draw_fbo = 7;
+    int draw_fbo = 10;
     int local_lights_on = 1;
     // Options menu stuff
     bool show_demo_window;
