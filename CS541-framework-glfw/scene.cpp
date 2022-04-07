@@ -242,6 +242,28 @@ void Scene::InitializeScene()
     //Create the FBO for the gbuffer used in deferred shading
     gbufferRenderTarget.CreateFBO(750, 750, 4);
 
+    //Create a uniform block for the hammersly block
+    glGenBuffers(1, &h_block_id);
+    glBindBuffer(GL_UNIFORM_BUFFER, h_block_id);
+    bindpoint += 1;
+    glBindBufferBase(GL_UNIFORM_BUFFER, bindpoint, h_block_id);
+    size_t h_block_size = sizeof(h_block);
+    glBufferData(GL_UNIFORM_BUFFER, h_block_size, NULL, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+    loc = glGetUniformBlockIndex(lightingProgram->programId, "HammersleyBlock");
+    glUniformBlockBinding(lightingProgram->programId, loc, bindpoint);
+
+    sampling_count = 20;
+    h_block.N = 20;
+    RecalculateHBlock();
+
+    glBindBuffer(GL_UNIFORM_BUFFER, h_block_id);
+    h_block_size = sizeof(h_block);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, h_block_size, &h_block);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    CHECKERROR;
+
     // Create the shader program for Local lights pass
     localLightsProgram = new ShaderProgram();
     localLightsProgram->AddShader("local_lights.vert", GL_VERTEX_SHADER);
@@ -275,10 +297,15 @@ void Scene::InitializeScene()
     glm::vec3 grassColor(62.0/255.0, 102.0/255.0, 38.0/255.0);
     glm::vec3 waterColor(0.3, 0.3, 1.0);
     glm::vec3 skyColor(133.0 / 255.0, 222.0 / 255.0, 255.0 / 255.0);
+    glm::vec3 greymetalColor(70.0 / 255.0, 71.0 / 255.0, 62.0 / 255.0);
 
     glm::vec3 black(0.0, 0.0, 0.0);
     glm::vec3 brightSpec(0.05, 0.05, 0.05);
     glm::vec3 polishedSpec(0.03, 0.03, 0.03);
+    glm::vec3 brushedSpec1(0.1, 0.1, 0.1);
+    glm::vec3 brushedSpec2(0.2, 0.2, 0.2);
+    glm::vec3 brushedSpec3(0.8, 0.8, 0.8);
+    glm::vec3 brushedSpec4(1.0, 1.0, 1.0);
  
     // Creates all the models from which the scene is composed.  Each
     // is created with a polygon shape (possibly NULL), a
@@ -301,8 +328,8 @@ void Scene::InitializeScene()
     Texture crateNMap(".\\textures\\crate1_normal.jpg", false);
     
     //Floor texture from https://opengameart.org/content/117-stone-wall-tilable-textures-in-8-themes
-    Texture floorTexture(".\\textures\\Tileable8.jpg", true);
-    Texture floorNMap(".\\textures\\Tileable8_nm.jpg", true);
+    Texture floorTexture(".\\textures\\6670-diffuse.jpg", true);
+    Texture floorNMap(".\\textures\\6670-normal.jpg", true);
 
     //Wall texture from https://opengameart.org/content/pixars-textures
     Texture wallTexture(".\\textures\\Black_glazed_tile_pxr128.jpg");
@@ -324,6 +351,10 @@ void Scene::InitializeScene()
     teapot     = new Object(TeapotPolygons, teapotId, brassColor, brightSpec, 0.128, true, teapotTexture.textureId, 4, teapotNMap.textureId, 5); //phong alpha = 120 | Reflective set to true
 	reflectionEye = glm::vec3(0, 0, 1.5);
     podium     = new Object(BoxPolygons, boxId, glm::vec3(woodColor), polishedSpec, 0.408, false, crateTexture.textureId, 6, crateNMap.textureId, 7); //phong alpha = 10 
+    small_sphere = new Object(SpherePolygons, spheresId, black, brushedSpec4, 0.8); //phong alpha = 10
+    small_sphere_2 = new Object(SpherePolygons, spheresId, black, brushedSpec4, 0.5); //phong alpha = 10
+    small_sphere_3 = new Object(SpherePolygons, spheresId, black, brushedSpec4, 0.1); //phong alpha = 10
+    small_sphere_4 = new Object(SpherePolygons, spheresId, black, brushedSpec4, 0); //phong alpha = 10
     sky        = new Object(SpherePolygons, skyId, black, black, 1); //phong alpha = 0
     ground     = new Object(GroundPolygons, groundId, grassColor, black, 0.817, false, grassTexture.textureId, 8, grassNMap.textureId, 9); //phong alpha = 1
     sea        = new Object(SeaPolygons, seaId, waterColor, brightSpec, 0.128, false, -1, -1, waterNMap.textureId, 10); //phong alpha = 120
@@ -359,6 +390,12 @@ void Scene::InitializeScene()
     // Central contains a teapot on a podium and an external sphere of spheres
     central->add(podium, Translate(0.0, 0,0));
     central->add(anim, Translate(0.0, 0,0));
+
+    central->add(small_sphere, Translate(2.0, 2.0, 2) * Scale(0.5, 0.5, 0.5));
+    central->add(small_sphere_2, Translate(2.0, -2.0, 2) * Scale(0.5, 0.5, 0.5));
+    central->add(small_sphere_3, Translate(-2.0, 2.0, 2) * Scale(0.5, 0.5, 0.5));
+    central->add(small_sphere_4, Translate(-2.0, -2.0, 2) * Scale(0.5, 0.5, 0.5));
+
     anim->add(teapot, Translate(0.1, 0.0, 1.5)*TeapotPolygons->modelTr);
     if (fullPolyCount)
         anim->add(spheres, Translate(0.0, 0.0, 0.0)*Scale(16, 16, 16));
@@ -436,6 +473,7 @@ void Scene::DrawMenu()
         if (ImGui::BeginMenu("Textures ")) {
             if (ImGui::MenuItem("Off", "", texture_mode == 0)) { texture_mode = 0; }
             if (ImGui::MenuItem("On", "", texture_mode == 1)) { texture_mode = 1; }
+            if (ImGui::MenuItem("On without Nmaps", "", texture_mode == 2)) { texture_mode = 2; }
             ImGui::EndMenu(); }
 
         if (ImGui::BeginMenu("Draw FBOs")) {
@@ -453,15 +491,20 @@ void Scene::DrawMenu()
             ImGui::EndMenu();
         }
 
-        
-
     ImGui::EndMainMenuBar(); 
     }
-
-    ImGui::Begin("Shadow Kernel Control");
-    ImGui::SliderInt("Shadow Blur Kernel", &kernel_width, 2, 50);
-    ImGui::Text("LightDist : %f", lightDist);
-    ImGui::End();
+    if (lightingMode != 3) {
+        ImGui::Begin("Shadow Kernel Control");
+        ImGui::SliderInt("Shadow Blur Kernel", &kernel_width, 2, 50);
+        ImGui::Text("LightDist : %f", lightDist);
+        ImGui::End();
+    }
+    else {
+        ImGui::Begin("Exposure Control");
+        ImGui::SliderInt("Exposure ", &exposure, 2, 20);
+        ImGui::SliderInt("Sampling count", &sampling_count, 20, 40);
+        ImGui::End();
+    }
     
     if (gamelike_mode == true) {
         const float step = speed * (glfwGetTime() - time_at_prev_frame);
@@ -644,6 +687,16 @@ void Scene::DrawScene()
     // The lighting algorithm needs the inverse of the WorldView matrix
     WorldInverse = glm::inverse(WorldView);
     
+
+    if (sampling_count != h_block.N) {
+        h_block.N = sampling_count;
+        RecalculateHBlock();
+
+        glBindBuffer(GL_UNIFORM_BUFFER, h_block_id);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(h_block), &h_block);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+        CHECKERROR;
+    }
 
     ////////////////////////////////////////////////////////////////////////////////
     // Anatomy of a pass:
@@ -1020,6 +1073,9 @@ void Scene::DrawScene()
     loc = glGetUniformLocation(programId, "max_depth");
     glUniform1f(loc, max_depth);
 
+    loc = glGetUniformLocation(programId, "exposure");
+    glUniform1i(loc, exposure);
+
     //Draw a full screen quad to activate every pixel shader
     DrawFullScreenQuad();
     CHECKERROR; 
@@ -1110,5 +1166,20 @@ void Scene::RecalculateKernel() {
     float beta = 1 / sum;
     for (unsigned int i = 0; i < kernel_vals.size(); ++i) {
         kernel_vals[i] *= beta;
+    }
+}
+
+void Scene::RecalculateHBlock() {
+    int kk;
+    int pos = 0;
+    float u, v, p;
+    for (int k = 0; k < sampling_count; k++) {
+        for (p = 0.5f, kk = k, u = 0.5f; kk; p *= 0.5f, kk >>= 1) {
+            if (kk & 1)
+                u += p;
+        }
+        v = (k + 0.5f) / sampling_count;
+        h_block.hammersly[pos++] = u;
+        h_block.hammersly[pos++] = v;
     }
 }

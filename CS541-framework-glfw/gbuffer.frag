@@ -49,7 +49,7 @@ void main()
 	vec3 Kd = diffuse;
     vec3 Ks = specular;
 
-    if (textureMode == 1) {
+    if (textureMode != 0) {
 
         if (objectId == skyId){
             vec2 uv = vec2(-atan(V.y, V.x)/(2*PI), acos(V.z)/PI);
@@ -108,27 +108,27 @@ void main()
             else
                 Kd = texture2D(ObjectTexture, uv).xyz;
         }
-        if (hasNMap != -1){
-            vec2 uv = texCoord;
-            if (objectId == groundId)
-                uv *= 10;
-            if (objectId == floorId)
-                uv *= 5;
-            if (objectId == roomId){
-                uv = uv.yx;
-                uv *= 50;
+        if (textureMode == 1) {
+            if (hasNMap != -1){
+                vec2 uv = texCoord;
+                if (objectId == groundId)
+                    uv *= 10;
+                if (objectId == floorId)
+                    uv *= 5;
+                if (objectId == roomId){
+                    uv = uv.yx;
+                    uv *= 50;
+                }
+                if (objectId == seaId){
+                    uv = uv.yx;
+                    uv *= 500;
+                }
+                vec3 delta = texture2D(ObjectNMap, uv).xyz;
+                delta = delta*2.0 - vec3(1, 1, 1);
+                vec3 T = normalize(tanVec);
+                vec3 B = normalize(cross(T, N));
+                N = delta.x*T + delta.y*B + delta.z*N;
             }
-            if (objectId == seaId){
-                uv = uv.yx;
-                uv *= 500;
-            }
-            vec3 delta = texture2D(ObjectNMap, uv).xyz;
-            if (objectId == floorId)
-                delta = delta/(100.0/255.0); //Some extra calculation required for the special normal map used for the floor
-            delta = delta*2.0 - vec3(1, 1, 1);
-            vec3 T = normalize(tanVec);
-            vec3 B = normalize(cross(T, N));
-            N = delta.x*T + delta.y*B + delta.z*N;
         }
     }
 

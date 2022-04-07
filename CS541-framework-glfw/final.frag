@@ -4,7 +4,6 @@
 #version 330
 
 const float PI = 3.14159f;
-const float exposure = 2;
 
 const int Phong_M = 0;
 const int BRDF_M = 1;
@@ -27,6 +26,8 @@ uniform sampler2D gBufferSpecular;
 uniform sampler2D shadowMap;
 uniform sampler2D SkydomeTex;
 uniform sampler2D IrrMapTex;
+uniform int irrMap_width;
+uniform int irrMap_height;
 uniform int reflectionMode;
 uniform int textureMode;
 uniform int lightingMode;
@@ -34,6 +35,12 @@ uniform int drawFbo;
 uniform float shininess;
 uniform int width, height;
 uniform float min_depth, max_depth;
+uniform int exposure;
+
+uniform HammersleyBlock {
+    float sampling_count;
+    float hammersley[2*100];
+};
 
 void main()
 {
@@ -231,29 +238,65 @@ void main()
         //Ks value coming in is for BRDF so adjust for Phong by multiplying by 10
     }
     else if (lightingMode == IBL_M){
+        //Diffuse portion
         vec2 uv = vec2(-atan(-N.y, -N.x)/(2*PI), acos(-N.z)/PI);
         vec3 irr_map_color = texture2D(IrrMapTex, uv).xyz;
         irr_map_color = pow(irr_map_color, vec3(2.2));
 
         vec3 R = (2*dot(N, V)*N) - V;
         vec3 newH = normalize(R+V);
-        uv = vec2(-atan(-R.y, -R.x)/(2*PI), acos(-R.z)/PI);
-        vec3 reflection_map_color = texture2D(SkydomeTex, uv).xyz;
-        reflection_map_color = pow(reflection_map_color, vec3(2.2));
-
-        vec3 brdf;
-        float distribution;
         float RH = max(dot(R, newH), 0);
         float NR = max(dot(N, R), 0.0);
         float newNH = max(dot(N, newH), 0);
-        vec3 fresnel = Ks + ((vec3(1,1,1) - Ks)*pow((1-RH), 5));
-        float visibility = 1/(RH*RH);
-        float alpha = -2 + (2/(shininess*shininess));
-        distribution = ((alpha+2)/(2*PI))*pow(newNH, alpha);
+        float NL;
 
-        brdf = ((fresnel*visibility*distribution)/4);
+        vec3 A = normalize(vec3(-R.y, R.x, 0));
+        vec3 B = normalize(cross(R, A));
+        vec3 L;
+        vec3 omega_k;
+        vec3 spec_light;
+        vec3 spec_calc;
+        float lod;
+
+        float distribution;
+        vec3 fresnel;
+        float visibility;
+        float alpha_squared;
+
+        vec3 avg_light = vec3(0);
+
+        for(int i=0; i < sampling_count; i++) {
+            uv.x = hammersley[i*2];
+            uv.y = hammersley[(i*2)+1];
+            uv.y = atan((shininess * sqrt(uv.y)) / sqrt(1 - uv.y));
+            L = vec3(
+                cos(2*PI*(0.5 - uv.x)) * sin(PI*uv.y),
+                sin(2*PI*(0.5 - uv.x)) * sin(PI*uv.y),
+                cos(PI*uv.y)
+            );
+            omega_k = normalize(L.x*A + L.y*B + L.z*R);
+            //Using uv as texture coords here not the uv direction
+            uv = vec2(-atan(-omega_k.y, -omega_k.x)/(2*PI), acos(-omega_k.z)/PI);
+
+            alpha_squared = pow(shininess, 2);
+            distribution = alpha_squared / (PI * pow(pow(NH, 2) * (alpha_squared - 1) + 1, 2));
+            lod = (0.5 * log2((irrMap_width*irrMap_height) / sampling_count)) - (0.5*(log2(distribution)/4));
+            spec_light = textureLod(IrrMapTex, uv, lod).xyz;
+            //Gamma correction
+            spec_light = pow(spec_light, vec3(2.2));
+
+            H = normalize(omega_k+V);
+            LH = max(dot(omega_k, H), 0);
+            NL = max(dot(N, omega_k), 0.0);
+            fresnel = Ks + ((vec3(1,1,1) - Ks)*pow((1-LH), 5));
+            visibility = 1/(LH*LH);
+
+            avg_light += ((visibility*fresnel*spec_light)/4 * NL);
+        }
+
+        spec_calc = avg_light/sampling_count;
       
-        outColor = (Kd/PI)*irr_map_color + (reflection_map_color * brdf * NR);
+        outColor = (Kd/PI)*irr_map_color + spec_calc;
         //outColor = (Kd/PI)*irr_map_color;
     }
     else {
@@ -283,8 +326,9 @@ void main()
         //}
     }
 
-    //Convert color back into sRGB space
+    //Tone mapping for HDR level values
     outColor = (exposure*outColor)/(exposure*outColor + 1);
+    //Convert color back into sRGB space
     outColor = pow(outColor, vec3(1/2.2));
     
     
