@@ -736,12 +736,18 @@ void Scene::DrawScene()
     {
     case 0:
         p_sky_dome->Bind(13, programId, "SkydomeTex");
+        sky_dome_width = p_sky_dome->width;
+        sky_dome_height = p_sky_dome->height;
         break;
     case 1:
         p_sky_dome_cage->Bind(13, programId, "SkydomeTex");
+        sky_dome_width = p_sky_dome_cage->width;
+        sky_dome_height = p_sky_dome_cage->height;
         break;
     case 2:
         p_barca_sky->Bind(13, programId, "SkydomeTex");
+        sky_dome_width = p_barca_sky->width;
+        sky_dome_height = p_barca_sky->height;
         break;
     }
     CHECKERROR;
@@ -896,12 +902,18 @@ void Scene::DrawScene()
     {
     case 0:
         p_sky_dome->Bind(13, programId, "SkydomeTex");
+        sky_dome_width = p_sky_dome->width;
+        sky_dome_height = p_sky_dome->height;
         break;
     case 1:
         p_sky_dome_cage->Bind(13, programId, "SkydomeTex");
+        sky_dome_width = p_sky_dome_cage->width;
+        sky_dome_height = p_sky_dome_cage->height;
         break;
     case 2:
         p_barca_sky->Bind(13, programId, "SkydomeTex");
+        sky_dome_width = p_barca_sky->width;
+        sky_dome_height = p_barca_sky->height;
         break;
     }
     CHECKERROR;
@@ -998,19 +1010,32 @@ void Scene::DrawScene()
     //Bind the skydome texture
     switch (sky_dome_mode)
     {
-    case 0 :
+    case 0:
         p_sky_dome->Bind(13, programId, "SkydomeTex");
+        sky_dome_width = p_sky_dome->width;
+        sky_dome_height = p_sky_dome->height;
         break;
     case 1:
         p_sky_dome_cage->Bind(13, programId, "SkydomeTex");
+        sky_dome_width = p_sky_dome_cage->width;
+        sky_dome_height = p_sky_dome_cage->height;
         break;
     case 2:
         p_barca_sky->Bind(13, programId, "SkydomeTex");
+        sky_dome_width = p_barca_sky->width;
+        sky_dome_height = p_barca_sky->height;
+        break;
     }
     CHECKERROR;
 
     p_irr_map->Bind(14, programId, "IrrMapTex");
     CHECKERROR;
+
+    loc = glGetUniformLocation(programId, "skydome_width");
+    glUniform1i(loc, sky_dome_width);
+
+    loc = glGetUniformLocation(programId, "skydome_height");
+    glUniform1i(loc, sky_dome_height);
 
     shadowPassRenderTarget.BindTexture(lightingProgram->programId, 15, "shadowMap");
     

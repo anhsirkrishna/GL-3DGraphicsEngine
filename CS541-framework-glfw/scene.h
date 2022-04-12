@@ -136,6 +136,9 @@ public:
     int sampling_count = 20;
     GLuint h_block_id;
 
+    int sky_dome_width;
+    int sky_dome_height;
+
     void InitializeScene();
     void BuildTransforms();
     void DrawMenu();

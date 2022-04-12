@@ -26,8 +26,8 @@ uniform sampler2D gBufferSpecular;
 uniform sampler2D shadowMap;
 uniform sampler2D SkydomeTex;
 uniform sampler2D IrrMapTex;
-uniform int irrMap_width;
-uniform int irrMap_height;
+uniform int skydome_width;
+uniform int skydome_height;
 uniform int reflectionMode;
 uniform int textureMode;
 uniform int lightingMode;
@@ -244,6 +244,7 @@ void main()
         irr_map_color = pow(irr_map_color, vec3(2.2));
 
         vec3 R = (2*dot(N, V)*N) - V;
+        float NV = normalize(dot(N, V));
         vec3 newH = normalize(R+V);
         float RH = max(dot(R, newH), 0);
         float NR = max(dot(N, R), 0.0);
@@ -262,13 +263,17 @@ void main()
         vec3 fresnel;
         float visibility;
         float alpha_squared;
-
+        float g1_L;
+        float g1_V;
+        float tan_v_L;
+        float tan_v_V;
         vec3 avg_light = vec3(0);
 
         for(int i=0; i < sampling_count; i++) {
             uv.x = hammersley[i*2];
             uv.y = hammersley[(i*2)+1];
             uv.y = atan((shininess * sqrt(uv.y)) / sqrt(1 - uv.y));
+            uv.y = uv.y/PI;
             L = vec3(
                 cos(2*PI*(0.5 - uv.x)) * sin(PI*uv.y),
                 sin(2*PI*(0.5 - uv.x)) * sin(PI*uv.y),
@@ -279,9 +284,9 @@ void main()
             uv = vec2(-atan(-omega_k.y, -omega_k.x)/(2*PI), acos(-omega_k.z)/PI);
 
             alpha_squared = pow(shininess, 2);
-            distribution = alpha_squared / (PI * pow(pow(NH, 2) * (alpha_squared - 1) + 1, 2));
-            lod = (0.5 * log2((irrMap_width*irrMap_height) / sampling_count)) - (0.5*(log2(distribution)/4));
-            spec_light = textureLod(IrrMapTex, uv, lod).xyz;
+            distribution = alpha_squared / (PI * pow(pow(NH, 2) * (alpha_squared - 1.0) + 1, 2));
+            lod = (0.5 * log2((skydome_width*skydome_height) / sampling_count)) - (0.5*(log2(distribution)/4));
+            spec_light = textureLod(SkydomeTex, uv, lod).xyz;
             //Gamma correction
             spec_light = pow(spec_light, vec3(2.2));
 
@@ -289,9 +294,19 @@ void main()
             LH = max(dot(omega_k, H), 0);
             NL = max(dot(N, omega_k), 0.0);
             fresnel = Ks + ((vec3(1,1,1) - Ks)*pow((1-LH), 5));
+            tan_v_L = sqrt(1.0 - (NL*NL))/(NL);
+            tan_v_V = sqrt(1.0 - (NV*NV))/(NV);
+            if (tan_v_L == 0)
+                g1_L = 0;
+            else
+                g1_L = 2.0/(1.0 + sqrt(1.0+(alpha_squared+(tan_v_L*tan_v_L))));
+            if (tan_v_V == 0)
+                g1_V = 0;
+            else
+                g1_V = 2.0/(1.0 + sqrt(1.0+(alpha_squared+(tan_v_V*tan_v_V))));
             visibility = 1/(LH*LH);
 
-            avg_light += ((visibility*fresnel*spec_light)/4 * NL);
+            avg_light += ((visibility*fresnel*spec_light)/(4) * NL);
         }
 
         spec_calc = avg_light/sampling_count;
