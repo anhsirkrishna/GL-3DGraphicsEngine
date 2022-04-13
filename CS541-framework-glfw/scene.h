@@ -129,7 +129,7 @@ public:
     bool show_demo_window;
 
     int ao_sample_count = 20;
-    float ao_range = 0.3f;
+    float ao_range = 1.0f;
     float ao_scale = 1;
     float ao_contrast = 1;
 

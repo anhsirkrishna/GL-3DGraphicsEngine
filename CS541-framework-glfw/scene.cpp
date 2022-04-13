@@ -514,7 +514,7 @@ void Scene::DrawMenu()
             if (ImGui::MenuItem("Enabled", "", ao_enabled == 1)) { ao_enabled = 1; }
             if (ImGui::MenuItem("Disabled", "", ao_enabled == 0)) { ao_enabled = 0; }
             ImGui::SliderInt("AO sample count", &ao_sample_count, 10, 20);
-            ImGui::SliderFloat("AO range", &ao_range, 0, 1);
+            ImGui::SliderFloat("AO range", &ao_range, 0, 3, "%.5f");
             ImGui::SliderFloat("AO scale", &ao_scale, 0, 10);
             ImGui::SliderFloat("AO contrast", &ao_contrast, 0, 10);
             ImGui::SliderInt("AO Kernel width ", &bilinear_kernel_width, 2, 50);

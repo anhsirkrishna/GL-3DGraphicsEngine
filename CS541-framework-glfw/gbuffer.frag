@@ -141,7 +141,7 @@ void main()
     }
 
 	gl_FragData[0] = worldPos;
-	gl_FragData[1].xyz = N;
+	gl_FragData[1].xyz = normalize(N);
     gl_FragData[1].w = 0;
 	gl_FragData[2].xyz = Kd;
 	gl_FragData[3].xyz = Ks;

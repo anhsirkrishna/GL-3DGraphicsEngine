@@ -19,6 +19,9 @@ uniform int width, height;
 uniform int ao_sample_count;
 uniform float range_of_influence;
 
+uniform float min_depth;
+uniform float max_depth;
+
 uniform float scale;
 uniform float contrast;
 
@@ -32,7 +35,7 @@ void main() {
     vec2 xy = gpos.xy / vec2(width, height);
     vec4 worldPos = imageLoad(gBufferWorldPos, gpos);
     float pixel_depth = worldPos.w;
-    vec3 normalVec = imageLoad(gBufferWorldPos, gpos).xyz;
+    vec3 normalVec = imageLoad(gBufferNormalVec, gpos).xyz;
     //=================================================================
 
 
@@ -56,9 +59,10 @@ void main() {
     for (int i=0; i < ao_sample_count; ++i) {
         //Choosing a neighboring point
         //=================================================================
-        alpha = (i+0.5)/ao_sample_count;
-        h = (alpha*R)/pixel_depth;
+        alpha = (i+0.5f)/ao_sample_count;
+        h = alpha*R/pixel_depth;
         theta = (2*PI*alpha*((7*ao_sample_count)/9)) + phi;
+        //theta = (2*PI*alpha*((7*ao_sample_count)/9));
         xy_i = xy + h*vec2(cos(theta), sin(theta));
         Pos_i = imageLoad(gBufferWorldPos, ivec2(xy_i.x*width, xy_i.y*height));
         Pi = Pos_i.xyz;
@@ -79,7 +83,6 @@ void main() {
     }
     S = S * ((2*PI*c)/ao_sample_count);
 
-    A = max(0, pow((1 - (scale*S)), contrast));
-
+    A = max(0, pow(((1 - scale*S)), contrast));
 	imageStore(dst, gpos, vec4(A)); // Write to destination image
 }
