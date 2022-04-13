@@ -1,0 +1,85 @@
+/////////////////////////////////////////////////////////////////////////
+// Compute shader for shadow map blurring
+////////////////////////////////////////////////////////////////////////
+#version 430
+
+const float PI = 3.14159f;
+
+// Declares thread group size
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+//src image as 4 channel 32bit float readonly
+layout (rgba32f) uniform readonly image2D gBufferWorldPos;
+layout (rgba32f) uniform readonly image2D gBufferNormalVec;
+
+// dst image as 1 channel 32bit float writeonly
+layout (rgba32f) uniform writeonly image2D dst;
+
+uniform int width, height;
+uniform int ao_sample_count;
+uniform float range_of_influence;
+
+uniform float scale;
+uniform float contrast;
+
+void main() {
+
+	// Combo of groupID, groupSize and localID
+	ivec2 gpos = ivec2(gl_GlobalInvocationID.xy); 
+	
+	//Following lines of code all read in values from the gbuffer
+    //=================================================================
+    vec2 xy = gpos.xy / vec2(width, height);
+    vec4 worldPos = imageLoad(gBufferWorldPos, gpos);
+    float pixel_depth = worldPos.w;
+    vec3 normalVec = imageLoad(gBufferWorldPos, gpos).xyz;
+    //=================================================================
+
+
+    //Ambient occlusion factor calculation
+    float A;
+    float S = 0;
+    float R = range_of_influence;
+    vec3 omega_i;
+    vec3 P = worldPos.xyz;
+    vec3 Pi;
+    float Di;
+    float alpha;
+    float h;
+    float theta;
+    float phi = (30 * gpos.x ^ gpos.y) + (10* gpos.x * gpos.y);
+    vec2 xy_i;
+    float c = 0.1*R;
+    float delta = 0.001;
+    vec4 Pos_i;
+    
+    for (int i=0; i < ao_sample_count; ++i) {
+        //Choosing a neighboring point
+        //=================================================================
+        alpha = (i+0.5)/ao_sample_count;
+        h = (alpha*R)/pixel_depth;
+        theta = (2*PI*alpha*((7*ao_sample_count)/9)) + phi;
+        xy_i = xy + h*vec2(cos(theta), sin(theta));
+        Pos_i = imageLoad(gBufferWorldPos, ivec2(xy_i.x*width, xy_i.y*height));
+        Pi = Pos_i.xyz;
+        Di = Pos_i.w;
+        //=================================================================
+
+        //Calculating factor S
+        //=================================================================
+        omega_i = P - Pi;
+        if ((R - length(omega_i)) < 0) {
+            S += 0;
+        }
+        else {
+            S += max(0, dot(normalVec, omega_i) - delta*Di) / max(c*c, dot(omega_i, omega_i));
+        }
+            
+        //=================================================================
+    }
+    S = S * ((2*PI*c)/ao_sample_count);
+
+    A = max(0, pow((1 - (scale*S)), contrast));
+
+	imageStore(dst, gpos, vec4(A)); // Write to destination image
+}

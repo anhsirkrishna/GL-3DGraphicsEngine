@@ -101,10 +101,14 @@ public:
     ShaderProgram* localLightsProgram;
     ShaderProgram* shadowBlur_H_Program;
     ShaderProgram* shadowBlur_V_Program;
+    ShaderProgram* AOProgram;
+    ShaderProgram* bilinear_H_Program;
+    ShaderProgram* bilinear_V_Program;
     // @@ Declare additional shaders if necessary
 
     //FBO decleration
     FBO shadowPassRenderTarget, upperReflectionRenderTarget, lowerReflectionRenderTarget, gbufferRenderTarget;
+    FBO AORenderTarget;
     int fbo_width, fbo_height;
 
     glm::mat4 BMatrix, ShadowMatrix;
@@ -119,18 +123,30 @@ public:
     int texture_mode = 1;
     int draw_fbo = 10;
     int local_lights_on = 0;
+
+    int ao_enabled = 1;
     // Options menu stuff
     bool show_demo_window;
+
+    int ao_sample_count = 20;
+    float ao_range = 0.3f;
+    float ao_scale = 1;
+    float ao_contrast = 1;
 
     //Deferred shading reqs
     GLuint screen_quad_vao;
 
     int shadow_blur_kernel_width;
     GLuint blur_kernel_block_id;
+    GLuint bilinear_kernel_block_id;
     FBO shadowBlurOutput;
+    FBO bilinearFilterOutput;
+    FBO bilinearFilterOutput_2;
     int kernel_width = 3;
+    int bilinear_kernel_width = 3;
     int exposure = 3;
     std::vector<float> kernel_vals;
+    std::vector<float> bilinear_kernel_vals;
 
     HBlock h_block;
     int sampling_count = 20;
@@ -149,5 +165,6 @@ public:
     void DrawLocalLights(ShaderProgram* program);
     void RebuildGbuffer(int w, int h);
     void RecalculateKernel();
+    void RecalculateBilinearKernel();
     void RecalculateHBlock();
 };

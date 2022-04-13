@@ -264,6 +264,40 @@ void Scene::InitializeScene()
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     CHECKERROR;
 
+    //Create a compute shader for AO pass
+    AOProgram = new ShaderProgram();
+    AOProgram->AddShader("ao.comp", GL_COMPUTE_SHADER);
+    AOProgram->LinkProgram();
+
+    AORenderTarget.CreateFBO(750, 750);
+
+    // Create the compute shader program for bilinear filter
+    bilinear_H_Program = new ShaderProgram();
+    bilinear_H_Program->AddShader("bilinear_filter_horizontal.comp", GL_COMPUTE_SHADER);
+    bilinear_H_Program->LinkProgram();
+
+    bilinear_V_Program = new ShaderProgram();
+    bilinear_V_Program->AddShader("bilinear_filter_vertical.comp", GL_COMPUTE_SHADER);
+    bilinear_V_Program->LinkProgram();
+
+    glGenBuffers(1, &bilinear_kernel_block_id); // Generates block 
+    bindpoint++; // Start at zero, increment for other blocks
+
+    glBindBuffer(GL_UNIFORM_BUFFER, bilinear_kernel_block_id);
+    glBindBufferBase(GL_UNIFORM_BUFFER, bindpoint, bilinear_kernel_block_id);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(float) * 101, NULL, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+    loc = glGetUniformBlockIndex(bilinear_H_Program->programId, "blurKernel");
+    glUniformBlockBinding(bilinear_H_Program->programId, loc, bindpoint);
+
+    loc = glGetUniformBlockIndex(bilinear_V_Program->programId, "blurKernel");
+    glUniformBlockBinding(bilinear_V_Program->programId, loc, bindpoint);
+
+    //Create the FBO as the output texture for the shadow blue
+    bilinearFilterOutput.CreateFBO(750, 750);
+    bilinearFilterOutput_2.CreateFBO(750, 750);
+
     // Create the shader program for Local lights pass
     localLightsProgram = new ShaderProgram();
     localLightsProgram->AddShader("local_lights.vert", GL_VERTEX_SHADER);
@@ -476,6 +510,17 @@ void Scene::DrawMenu()
             if (ImGui::MenuItem("On without Nmaps", "", texture_mode == 2)) { texture_mode = 2; }
             ImGui::EndMenu(); }
 
+        if (ImGui::BeginMenu("AO ")) {
+            if (ImGui::MenuItem("Enabled", "", ao_enabled == 1)) { ao_enabled = 1; }
+            if (ImGui::MenuItem("Disabled", "", ao_enabled == 0)) { ao_enabled = 0; }
+            ImGui::SliderInt("AO sample count", &ao_sample_count, 10, 20);
+            ImGui::SliderFloat("AO range", &ao_range, 0, 1);
+            ImGui::SliderFloat("AO scale", &ao_scale, 0, 10);
+            ImGui::SliderFloat("AO contrast", &ao_contrast, 0, 10);
+            ImGui::SliderInt("AO Kernel width ", &bilinear_kernel_width, 2, 50);
+            ImGui::EndMenu();
+        }
+
         if (ImGui::BeginMenu("Draw FBOs")) {
             if (ImGui::MenuItem("Draw Shadow Map", "", draw_fbo == 0)) { draw_fbo = 0; }
             if (ImGui::MenuItem("Draw Shadow Map squared", "", draw_fbo == 1)) { draw_fbo = 1; }
@@ -487,7 +532,10 @@ void Scene::DrawMenu()
             if (ImGui::MenuItem("Draw Normal Map", "", draw_fbo == 7)) { draw_fbo = 7; }
             if (ImGui::MenuItem("Draw Diffuse color Map", "", draw_fbo == 8)) { draw_fbo = 8; }
             if (ImGui::MenuItem("Draw Specular color Map", "", draw_fbo == 9)) { draw_fbo = 9; }
-            if (ImGui::MenuItem("Disable", "", draw_fbo == 10)) { draw_fbo = 10; }
+            if (ImGui::MenuItem("Draw AO Map", "", draw_fbo == 10)) { draw_fbo = 10; }
+            if (ImGui::MenuItem("Draw AO Map Blur1", "", draw_fbo == 11)) { draw_fbo = 11; }
+            if (ImGui::MenuItem("Draw AO Map Blur2", "", draw_fbo == 12)) { draw_fbo = 12; }
+            if (ImGui::MenuItem("Disable", "", draw_fbo == 13)) { draw_fbo = 13; }
             ImGui::EndMenu();
         }
 
@@ -613,6 +661,12 @@ void Scene::DrawLocalLights(ShaderProgram* program) {
 void Scene::RebuildGbuffer(int w, int h){
     gbufferRenderTarget.DeleteFBO();
     gbufferRenderTarget.CreateFBO(w, h, 4);
+    AORenderTarget.DeleteFBO();
+    AORenderTarget.CreateFBO(w, h);
+    bilinearFilterOutput.DeleteFBO();
+    bilinearFilterOutput.CreateFBO(w, h);
+    bilinearFilterOutput_2.DeleteFBO();
+    bilinearFilterOutput_2.CreateFBO(w, h);
 }
 
 void Scene::BuildTransforms()
@@ -888,6 +942,142 @@ void Scene::DrawScene()
     // End of Shadow pass blur
     ////////////////////////////////////////////////////////////////////////////////
 
+    ////////////////////////////////////////////////////////////////////////////////
+    // Ambient Occlusion pass 
+    ////////////////////////////////////////////////////////////////////////////////
+
+    AOProgram->Use();
+
+
+    loc = glGetUniformLocation(AOProgram->programId, "width");
+    glUniform1i(loc, width);
+
+    loc = glGetUniformLocation(AOProgram->programId, "height");
+    glUniform1i(loc, height);
+
+    loc = glGetUniformLocation(AOProgram->programId, "ao_sample_count");
+    glUniform1i(loc, ao_sample_count);
+
+    loc = glGetUniformLocation(AOProgram->programId, "range_of_influence");
+    glUniform1f(loc, ao_range);
+
+    loc = glGetUniformLocation(AOProgram->programId, "scale");
+    glUniform1f(loc, ao_scale);
+
+    loc = glGetUniformLocation(AOProgram->programId, "contrast");
+    glUniform1f(loc, ao_contrast);
+
+    imageUnit = 0; // Perhaps 0 for input image and 1 for output image
+    loc = glGetUniformLocation(AOProgram->programId, "gBufferWorldPos");
+    glBindImageTexture(imageUnit, gbufferRenderTarget.textureID[0],
+        0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glUniform1i(loc, imageUnit);
+
+    imageUnit = 1; 
+    loc = glGetUniformLocation(AOProgram->programId, "gBufferNormalVec");
+    glBindImageTexture(imageUnit, gbufferRenderTarget.textureID[1],
+        0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glUniform1i(loc, imageUnit);
+
+
+    imageUnit = 2; 
+    loc = glGetUniformLocation(AOProgram->programId, "dst");
+    glBindImageTexture(imageUnit, AORenderTarget.textureID[0],
+        0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glUniform1i(loc, imageUnit);
+
+    // Tiles WxH image with groups sized 128x1
+    glDispatchCompute(width, height, 1);
+
+    AOProgram->Unuse();
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // End of Ambient Occlusion pass 
+    ////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Bilinear Filter for AO
+    ////////////////////////////////////////////////////////////////////////////////
+
+    bilinear_H_Program->Use();
+
+    RecalculateBilinearKernel();
+
+    glBindBuffer(GL_ARRAY_BUFFER, bilinear_kernel_block_id);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, bilinear_kernel_vals.size() * sizeof(float), &bilinear_kernel_vals[0]);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    CHECKERROR;
+
+    loc = glGetUniformLocation(bilinear_H_Program->programId, "width");
+    glUniform1i(loc, bilinear_kernel_width);
+
+
+    imageUnit = 0; // Perhaps 0 for input image and 1 for output image
+    loc = glGetUniformLocation(bilinear_H_Program->programId, "src");
+    glBindImageTexture(imageUnit, AORenderTarget.textureID[0],
+        0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glUniform1i(loc, imageUnit);
+
+    imageUnit = 1; // Perhaps 0 for input image and 1 for output image
+    loc = glGetUniformLocation(bilinear_H_Program->programId, "gBufferWorldPos");
+    glBindImageTexture(imageUnit, gbufferRenderTarget.textureID[0],
+        0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glUniform1i(loc, imageUnit);
+
+    imageUnit = 2;
+    loc = glGetUniformLocation(bilinear_H_Program->programId, "gBufferNormalVec");
+    glBindImageTexture(imageUnit, gbufferRenderTarget.textureID[1],
+        0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glUniform1i(loc, imageUnit);
+
+    imageUnit = 3; // Perhaps 0 for input image and 1 for output image
+    loc = glGetUniformLocation(bilinear_H_Program->programId, "dst");
+    glBindImageTexture(imageUnit, bilinearFilterOutput.textureID[0],
+        0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glUniform1i(loc, imageUnit);
+    // Tiles WxH image with groups sized 128x1
+    glDispatchCompute(glm::ceil(width / 128.0f), height, 1);
+
+    bilinear_H_Program->Unuse();
+
+    bilinear_V_Program->Use();
+
+    loc = glGetUniformLocation(bilinear_V_Program->programId, "width");
+    glUniform1i(loc, bilinear_kernel_width);
+
+    imageUnit = 0; // Perhaps 0 for input image and 1 for output image
+    loc = glGetUniformLocation(bilinear_V_Program->programId, "src");
+    glBindImageTexture(imageUnit, bilinearFilterOutput.textureID[0],
+        0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glUniform1i(loc, imageUnit);
+
+    imageUnit = 1; // Perhaps 0 for input image and 1 for output image
+    loc = glGetUniformLocation(bilinear_V_Program->programId, "gBufferWorldPos");
+    glBindImageTexture(imageUnit, gbufferRenderTarget.textureID[0],
+        0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glUniform1i(loc, imageUnit);
+
+    imageUnit = 2;
+    loc = glGetUniformLocation(bilinear_V_Program->programId, "gBufferNormalVec");
+    glBindImageTexture(imageUnit, gbufferRenderTarget.textureID[1],
+        0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+    glUniform1i(loc, imageUnit);
+
+    imageUnit = 3; // Perhaps 0 for input image and 1 for output image
+    loc = glGetUniformLocation(bilinear_V_Program->programId, "dst");
+    glBindImageTexture(imageUnit, bilinearFilterOutput_2.textureID[0],
+        0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glUniform1i(loc, imageUnit);
+    // Set all uniform and image variables
+    // Tiles WxH image with groups sized 128x1
+    glDispatchCompute(width, glm::ceil(height / 128.0f), 1);
+
+    bilinear_V_Program->Unuse();
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // End of Bilinear Filter for AO
+    ////////////////////////////////////////////////////////////////////////////////
+
 	////////////////////////////////////////////////////////////////////////////////
 	// Reflection pass 1
 	////////////////////////////////////////////////////////////////////////////////
@@ -1051,6 +1241,12 @@ void Scene::DrawScene()
     
     gbufferRenderTarget.BindTexture(lightingProgram->programId, 21, "gBufferSpecular", 3);
 
+    AORenderTarget.BindTexture(lightingProgram->programId, 22, "AOMap");
+
+    bilinearFilterOutput.BindTexture(lightingProgram->programId, 23, "AOMap_1");
+
+    bilinearFilterOutput_2.BindTexture(lightingProgram->programId, 24, "AOMap_2");
+
     // Set the viewport, and clear the screen
     glViewport(0, 0, width, height);
     glClearColor(0.5, 0.5, 0.5, 1.0);
@@ -1091,6 +1287,8 @@ void Scene::DrawScene()
     glUniform1i(loc, width);
     loc = glGetUniformLocation(programId, "height");
     glUniform1i(loc, height);
+    loc = glGetUniformLocation(programId, "ao_enabled");
+    glUniform1i(loc, ao_enabled);
     CHECKERROR;
 
     loc = glGetUniformLocation(programId, "min_depth");
@@ -1191,6 +1389,15 @@ void Scene::RecalculateKernel() {
     float beta = 1 / sum;
     for (unsigned int i = 0; i < kernel_vals.size(); ++i) {
         kernel_vals[i] *= beta;
+    }
+}
+
+void Scene::RecalculateBilinearKernel() {
+    bilinear_kernel_vals.clear();
+    float exponent;
+    for (int i = -bilinear_kernel_width; i <= bilinear_kernel_width; ++i) {
+        exponent = (pow(i / (bilinear_kernel_width / 2.0f), 2) * (-1.0f / 2.0f));
+        bilinear_kernel_vals.push_back(pow(glm::e<float>(), exponent));
     }
 }
 

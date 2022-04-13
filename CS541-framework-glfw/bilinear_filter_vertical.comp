@@ -1,0 +1,67 @@
+/////////////////////////////////////////////////////////////////////////
+// Compute shader for horizontal bilinear filter
+////////////////////////////////////////////////////////////////////////
+#version 430
+
+const float PI = 3.14159f;
+const float s = 0.01;
+const float epsilon = 0.00001;
+
+// Declares thread group size
+layout (local_size_x = 1, local_size_y = 128, local_size_z = 1) in;
+
+// Declares a uniform block
+uniform blurKernel {
+	float weights[101]; 
+};
+
+//src image as 4 channel 32bit float readonly
+layout (rgba32f) uniform readonly image2D src;
+layout (rgba32f) uniform readonly image2D gBufferWorldPos;
+layout (rgba32f) uniform readonly image2D gBufferNormalVec;
+
+// dst image as 4 channel 32bit float writeonly
+layout (rgba32f) uniform writeonly image2D dst;
+
+// Variable shared with other threads in the 128x1 thread group
+shared vec4 v[128+101];
+shared vec3 Ni[128+101];
+shared float Di[128+101];
+
+uniform int width;
+
+void main() {
+	// Combo of groupID, groupSize and localID
+	ivec2 gpos = ivec2(gl_GlobalInvocationID.xy); 
+	// Local thread id in the 128x1 thread groups128x1
+	uint i = gl_LocalInvocationID.y;
+	// read an image pixel at an ivec2(.,.) position
+	v[i] = imageLoad(src, gpos + ivec2(0, -width));
+	Ni[i] = normalize(imageLoad(gBufferNormalVec, gpos + ivec2(0, -width)).xyz);
+	Di[i] = imageLoad(gBufferWorldPos, gpos + ivec2(0, -width)).w;
+	// read extra 2*w pixels
+	if (i<2*width){
+		v[i+128] = imageLoad(src, gpos + ivec2(0, 128-width));
+		Ni[i+128] = normalize(imageLoad(gBufferNormalVec, gpos + ivec2(0, 128-width)).xyz);
+		Di[i+128] = imageLoad(gBufferWorldPos, gpos + ivec2(0, 128-width)).w;
+	}
+	
+	vec3 N = normalize(imageLoad(gBufferNormalVec, gpos).xyz);
+	float D = imageLoad(gBufferWorldPos, gpos).w;
+
+	// Wait for all threads to catchup before reading v[]
+	barrier();
+	
+	float R;
+	vec4 sum = vec4(vec3(0.0f), 1.0f);
+	float weight_sums = 0;
+	for(unsigned int k=0; k <= 2*width; ++k) {
+		//R = max(0, dot(Ni[k], N)) * (1/sqrt(2*PI*s)) * pow(epsilon, -((Di[k] - D)*(Di[k] - D))/2*s);
+		R = 1;
+		R = (1/sqrt(2*PI*s)) * pow(epsilon, -((Di[k] - D)*(Di[k] - D))/2*s) * max(0, dot(Ni[k], N));
+		weight_sums += (weights[k] * R);
+		sum += (v[i+k] * weights[k] * R);
+	}
+
+	imageStore(dst, gpos, sum/weight_sums); // Write to destination image
+}

@@ -26,6 +26,9 @@ uniform sampler2D gBufferSpecular;
 uniform sampler2D shadowMap;
 uniform sampler2D SkydomeTex;
 uniform sampler2D IrrMapTex;
+uniform sampler2D AOMap;
+uniform sampler2D AOMap_1;
+uniform sampler2D AOMap_2;
 uniform int skydome_width;
 uniform int skydome_height;
 uniform int reflectionMode;
@@ -36,6 +39,7 @@ uniform float shininess;
 uniform int width, height;
 uniform float min_depth, max_depth;
 uniform int exposure;
+uniform int ao_enabled;
 
 uniform HammersleyBlock {
     float sampling_count;
@@ -50,6 +54,7 @@ void main()
     vec4 worldPos = texture2D(gBufferWorldPos, uv);
     vec3 normalVec = texture2D(gBufferNormalVec, uv).xyz;
     vec3 Kd = texture2D(gBufferDiffuse, uv).xyz;
+    vec3 ao_factor = texture(AOMap_2, uv).xyz;
     vec3 Ks = texture2D(gBufferSpecular, uv).xyz;
     float shininess = texture2D(gBufferSpecular, uv).w;
     bool reflective = true;
@@ -130,6 +135,18 @@ void main()
     }
     if (drawFbo == 9){
         FragColor.xyz = texture2D(gBufferSpecular, uv).xyz;
+        return;
+    }
+    if (drawFbo == 10){
+        FragColor.xyz = texture2D(AOMap, uv).xyz;
+        return;
+    }
+    if (drawFbo == 11){
+        FragColor.xyz = texture2D(AOMap_1, uv).xyz;
+        return;
+    }
+    if (drawFbo == 12){
+        FragColor.xyz = texture2D(AOMap_2, uv).xyz;
         return;
     }
     
@@ -234,8 +251,12 @@ void main()
 
     if (lightingMode == Phong_M){
         alpha = -2 + (2/(shininess*shininess));
-        outColor = ambient*Kd + (light*(Kd/PI)*LN + light*(Ks*10)*pow(NH, alpha)) * (1 - G);
+        
         //Ks value coming in is for BRDF so adjust for Phong by multiplying by 10
+        vec3 ambient_val = ambient*Kd;
+        if (ao_enabled == 1)
+            ambient_val *= ao_factor;
+        outColor = ambient_val + (light*(Kd/PI)*LN + light*(Ks*10)*pow(NH, alpha)) * (1 - G);
     }
     else if (lightingMode == IBL_M){
         //Diffuse portion
@@ -311,8 +332,10 @@ void main()
 
         spec_calc = avg_light/sampling_count;
       
-        outColor = (Kd/PI)*irr_map_color + spec_calc;
-        //outColor = (Kd/PI)*irr_map_color;
+        vec3 ambient_val = (Kd/PI)*irr_map_color;
+        if (ao_enabled ==1)
+            ambient_val *= ao_factor;
+        outColor = ambient_val + spec_calc;
     }
     else {
         vec3 brdf;
@@ -336,9 +359,14 @@ void main()
         if (pixel_depth > (light_depth + 0.01))
             outColor = ambient*Kd;
         else{*/
-            outColor = ambient*Kd + ((light*LN*brdf) * (1-G));
+            
             //outColor = ambient*Kd + ((light*LN*brdf) * S);
         //}
+        vec3 ambient_val = ambient*Kd;
+        if (ao_enabled == 1)
+            ambient_val *= ao_factor;
+
+        outColor = ambient_val + ((light*LN*brdf) * (1-G));
     }
 
     //Tone mapping for HDR level values

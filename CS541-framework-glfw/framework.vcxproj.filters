@@ -66,6 +66,22 @@
     <None Include="shadow_vertical.comp">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="irr_map.comp" />
+    <None Include="ao.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="ao.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="ao.comp">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="bilinear_filter_horizontal.comp">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="bilinear_filter_vertical.comp">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">

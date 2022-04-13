@@ -134,10 +134,16 @@
     <Library Include="libs\glfw\lib-vc2019\glfw3.lib" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="ao.comp" />
+    <None Include="ao.frag" />
+    <None Include="ao.vert" />
+    <None Include="bilinear_filter_horizontal.comp" />
+    <None Include="bilinear_filter_vertical.comp" />
     <None Include="final.frag" />
     <None Include="final.vert" />
     <None Include="gbuffer.frag" />
     <None Include="gbuffer.vert" />
+    <None Include="irr_map.comp" />
     <None Include="lighting.frag" />
     <None Include="lighting.vert" />
     <None Include="local_lights.frag" />
