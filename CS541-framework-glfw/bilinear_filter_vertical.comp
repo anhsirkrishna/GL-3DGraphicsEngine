@@ -58,7 +58,7 @@ void main() {
 	for(unsigned int k=0; k <= 2*width; ++k) {
 		//R = max(0, dot(Ni[k], N)) * (1/sqrt(2*PI*s)) * pow(epsilon, -((Di[k] - D)*(Di[k] - D))/2*s);
 		R = 1;
-		R = (1/sqrt(2*PI*s)) * pow(epsilon, -((Di[k] - D)*(Di[k] - D))/2*s) * max(epsilon, dot(Ni[k], N));
+		R = (1/sqrt(2*PI*s)) * exp(-((Di[i+k] - D)*(Di[i+k] - D))/2*s) * max(0, dot(Ni[i+k], N));
 		weight_sums += (weights[k] * R);
 		sum += (v[i+k] * weights[k] * R);
 	}

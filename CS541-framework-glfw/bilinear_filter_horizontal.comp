@@ -39,6 +39,7 @@ void main() {
 	v[i] = imageLoad(src, gpos + ivec2(-width, 0));
 	Ni[i] = normalize(imageLoad(gBufferNormalVec, gpos + ivec2(-width, 0)).xyz);
 	Di[i] = imageLoad(gBufferWorldPos, gpos + ivec2(-width, 0)).w;
+
 	// read extra 2*w pixels
 	if (i<2*width){
 		v[i+128] = imageLoad(src, gpos + ivec2(128-width, 0));
@@ -58,10 +59,14 @@ void main() {
 	for(unsigned int k=0; k <= 2*width; ++k) {
 		//R = max(0, dot(Ni[k], N)) * (1/sqrt(2*PI*s)) * pow(epsilon, -((Di[k] - D)*(Di[k] - D))/2*s);
 		R = 1;
-		R = (1/sqrt(2*PI*s)) * pow(epsilon, -((Di[k] - D)*(Di[k] - D))/2*s) * max(epsilon, dot(Ni[k], N));
+		R = (1/sqrt(2*PI*s)) * exp(-((Di[i+k] - D)*(Di[i+k] - D))/2*s) * max(0, dot(Ni[i+k], N));
 		weight_sums += (weights[k] * R);
 		sum += (v[i+k] * weights[k] * R);
 	}
 
-	imageStore(dst, gpos, sum/weight_sums); // Write to destination image
+	
+	if (weight_sums <= 0)
+		imageStore(dst, gpos, vec4(1.0, vec3(0.0f))); // Write to destination image
+	else
+		imageStore(dst, gpos, sum/weight_sums); // Write to destination image
 }

@@ -71,7 +71,7 @@ void main() {
 
         //Calculating factor S
         //=================================================================
-        omega_i = P - Pi;
+        omega_i = Pi - P;
         if ((R - length(omega_i)) < 0) {
             S += 0;
         }

@@ -33,4 +33,5 @@ void main()
     texCoord = vertexTexture;
 
     gl_Position = WorldProj*WorldView*worldPos;
+    worldPos.w = gl_Position.w;
 }

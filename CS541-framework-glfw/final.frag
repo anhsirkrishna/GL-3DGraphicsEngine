@@ -69,7 +69,7 @@ void main()
     }
         
 
-    vec4 shadowCoord = ShadowMatrix*worldPos;
+    vec4 shadowCoord = ShadowMatrix*vec4(worldPos.xyz, 1.0);
     vec3 eyePos = (WorldInverse*vec4(0, 0, 0, 1)).xyz;
     //=================================================================
 
