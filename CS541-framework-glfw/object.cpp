@@ -31,10 +31,11 @@ using namespace gl;
 
 Object::Object(Shape* _shape, const int _objectId,
                const glm::vec3 _diffuseColor, const glm::vec3 _specularColor, const float _shininess,
-			   const bool _reflective, const int _texId, const int _texUnit, const int _nmapId, const int _nmapUnit)
+			   const bool _reflective, const int _texId, const int _texUnit, const int _nmapId, const int _nmapUnit,
+               glm::vec3& _brightness)
     : diffuseColor(_diffuseColor), specularColor(_specularColor), shininess(_shininess),
       shape(_shape), objectId(_objectId), drawMe(true), reflective(_reflective), textureId(_texId),
-      textureUnit(_texUnit), nmapId(_nmapId), nmapUnit(_nmapUnit)
+      textureUnit(_texUnit), nmapId(_nmapId), nmapUnit(_nmapUnit), brightness(_brightness)
      
 {}
 
@@ -86,6 +87,9 @@ void Object::Draw(ShaderProgram* program, glm::mat4& objectTr)
     
     loc = glGetUniformLocation(program->programId, "hasNMap");
     glUniform1i(loc, nmapId);
+
+    loc = glGetUniformLocation(program->programId, "brightness");
+    glUniform3fv(loc, 1, &brightness[0]);
 
     // If this object has an associated texture, this is the place to
     // load the texture into a texture-unit of your choice and inform

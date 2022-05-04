@@ -43,10 +43,12 @@ class Object
     int nmapId;
     int nmapUnit;
 
+    glm::vec3 brightness;
+
     Object(Shape* _shape, const int objectId,
            const glm::vec3 _d=glm::vec3(), const glm::vec3 _s=glm::vec3(), const float _n=1,
 		   const bool _reflective=false, const int _texId=-1, const int texUnit = -1, 
-           const int _nmapId=-1, const int _nmapUnit=-1);
+           const int _nmapId=-1, const int _nmapUnit=-1, glm::vec3 &_brightness=glm::vec3(0.0, 0.0, 0.0));
 
     // If this object is to be drawn with a texture, this is a good
     // place to store the texture id (a small positive integer).  The

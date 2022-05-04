@@ -83,9 +83,10 @@ Object* SphereOfSpheres(Shape* SpherePolygons)
     for (float angle=0.0;  angle<360.0;  angle+= 18.0)
         for (float row=0.075;  row<PI/2.0;  row += PI/2.0/6.0) {   
             glm::vec3 hue = HSV2RGB(angle/360.0, 1.0f-2.0f*row/PI, 1.0f);
-
+            glm::vec3 brightness(hue[0]*10, hue[1] * 10, hue[2] * 10);
+            brightness = glm::vec3(0.0, 0.0, 0.0);
             Object* sp = new Object(SpherePolygons, spheresId,
-                                    hue, glm::vec3(1.0, 1.0, 1.0), 0.128); //phong alpha = 120
+                                    hue, glm::vec3(1.5, 1.5, 1.5), 0.4, false, -1, -1, -1, -1, brightness); //phong alpha = 120
             float s = sin(row);
             float c = cos(row);
             ob->add(sp, Rotate(2,angle)*Translate(c,0,s)*Scale(0.075*c,0.075*c,0.075*c));
@@ -309,6 +310,26 @@ void Scene::InitializeScene()
     glBindAttribLocation(localLightsProgram->programId, 3, "vertexTangent");
     localLightsProgram->LinkProgram();
 
+    //Create shader programs for post processing
+    postProcessing_Program = new ShaderProgram();
+    postProcessing_Program->AddShader("post.vert", GL_VERTEX_SHADER);
+    postProcessing_Program->AddShader("post.frag", GL_FRAGMENT_SHADER);
+
+    glBindAttribLocation(postProcessing_Program->programId, 0, "vertex");
+    postProcessing_Program->LinkProgram();
+    glBindFragDataLocation(postProcessing_Program->programId, 0, "out_color");
+
+
+    //Create a compute shader for post processing
+    postProcessing_Compute = new ShaderProgram();
+    postProcessing_Compute->AddShader("post.comp", GL_COMPUTE_SHADER);
+    postProcessing_Compute->LinkProgram();
+
+    //Create a ping pong buffer for post processing
+    postProcessingBuffer.CreateFBO(750, 750, 3);
+    glBindFragDataLocation(localLightsProgram->programId, 0, "RenderBuffer");
+    glBindFragDataLocation(localLightsProgram->programId, 1, "PostProcessBuffer");
+
     // Create all the Polygon shapes
     proceduralground = new ProceduralGround(grndSize, 400,
                                      grndOctaves, grndFreq, grndPersistence,
@@ -448,9 +469,9 @@ void Scene::InitializeScene()
     //Skydome texture from https://vwartclub.com/?section=xfree3d&category=hdri&article=xfree3d-hdri-shop-s84-low-cloudy-1836
     p_sky_dome = new Texture(".\\textures\\Sky.jpg");
     p_barca_sky = new Texture(".\\textures\\Barce_Rooftop_C_3k.hdr", true);
-    p_irr_map = new Texture(".\\textures\\Barce_Rooftop_C_3k.irr.hdr", true);
-    //p_barca_sky = new Texture(".\\textures\\MonValley_A_LookoutPoint_2k.hdr");
-    //p_irr_map = new Texture(".\\textures\\MonValley_A_LookoutPoint_2k.irr.hdr");
+    p_barca_irr_map = new Texture(".\\textures\\Barce_Rooftop_C_3k.irr.hdr", true);
+    p_mon_valley_sky = new Texture(".\\textures\\MonValley_A_LookoutPoint_2k.hdr");
+    p_mon_valley_irr_map = new Texture(".\\textures\\MonValley_A_LookoutPoint_2k.irr.hdr");
     //Create a full screen quad to render for the deferred shading pass.
     CreateFullScreenQuad();
     CreateLocalLights(SpherePolygons);
@@ -496,7 +517,8 @@ void Scene::DrawMenu()
         if (ImGui::BeginMenu("Skydome ")) {
             if (ImGui::MenuItem("Sky", "", sky_dome_mode == 0)) { sky_dome_mode = 0; }
             if (ImGui::MenuItem("Cage", "", sky_dome_mode == 1)) { sky_dome_mode = 1; }
-            if (ImGui::MenuItem("HDR Sky", "", sky_dome_mode == 2)) { sky_dome_mode = 2; }
+            if (ImGui::MenuItem("Barca Rooftops", "", sky_dome_mode == 2)) { sky_dome_mode = 2; }
+            if (ImGui::MenuItem("Mon Valley", "", sky_dome_mode == 3)) { sky_dome_mode = 3; }
             ImGui::EndMenu();
         }
 
@@ -521,6 +543,18 @@ void Scene::DrawMenu()
             ImGui::EndMenu();
         }
 
+        if (ImGui::BeginMenu("Post Processing ")) {
+            if (ImGui::MenuItem("Tone Map 0", "", tone_map_mode == 0)) { tone_map_mode = 0; }
+            if (ImGui::MenuItem("Tone Map 1", "", tone_map_mode == 1)) { tone_map_mode = 1; }
+            ImGui::SliderFloat("Exposure ", &exposure, 2, 20);
+            ImGui::SliderFloat("Gamma ", &gamma, 1, 20);
+            if (ImGui::MenuItem("Bloom Enabled", "", bloom_enabled == 1)) { bloom_enabled = 1; }
+            if (ImGui::MenuItem("Bloom Disabled", "", bloom_enabled == 0)) { bloom_enabled = 0; }
+            ImGui::SliderFloat("Bloom Threshold ", &bloom_threshold, 0, 3);
+            ImGui::SliderInt("Bloom Blur Count", &bloom_pass_count, 1, 30);
+            ImGui::EndMenu();
+        }
+
         if (ImGui::BeginMenu("Draw FBOs")) {
             if (ImGui::MenuItem("Draw Shadow Map", "", draw_fbo == 0)) { draw_fbo = 0; }
             if (ImGui::MenuItem("Draw Shadow Map squared", "", draw_fbo == 1)) { draw_fbo = 1; }
@@ -535,7 +569,8 @@ void Scene::DrawMenu()
             if (ImGui::MenuItem("Draw AO Map", "", draw_fbo == 10)) { draw_fbo = 10; }
             if (ImGui::MenuItem("Draw AO Map Blur1", "", draw_fbo == 11)) { draw_fbo = 11; }
             if (ImGui::MenuItem("Draw AO Map Blur2", "", draw_fbo == 12)) { draw_fbo = 12; }
-            if (ImGui::MenuItem("Disable", "", draw_fbo == 13)) { draw_fbo = 13; }
+            if (ImGui::MenuItem("BloomBuffer", "", draw_fbo == 13)) { draw_fbo = 13; }
+            if (ImGui::MenuItem("Disable", "", draw_fbo == 14)) { draw_fbo = 14; }
             ImGui::EndMenu();
         }
 
@@ -548,8 +583,7 @@ void Scene::DrawMenu()
         ImGui::End();
     }
     else {
-        ImGui::Begin("Exposure Control");
-        ImGui::SliderInt("Exposure ", &exposure, 2, 20);
+        ImGui::Begin("IBL");
         ImGui::SliderInt("Sampling count", &sampling_count, 20, 40);
         ImGui::End();
     }
@@ -667,6 +701,9 @@ void Scene::RebuildGbuffer(int w, int h){
     bilinearFilterOutput.CreateFBO(w, h);
     bilinearFilterOutput_2.DeleteFBO();
     bilinearFilterOutput_2.CreateFBO(w, h);
+
+    postProcessingBuffer.DeleteFBO();
+    postProcessingBuffer.CreateFBO(w, h, 3);
 }
 
 void Scene::BuildTransforms()
@@ -802,6 +839,11 @@ void Scene::DrawScene()
         p_barca_sky->Bind(13, programId, "SkydomeTex");
         sky_dome_width = p_barca_sky->width;
         sky_dome_height = p_barca_sky->height;
+        break;
+    case 3:
+        p_mon_valley_sky->Bind(13, programId, "SkydomeTex");
+        sky_dome_width = p_mon_valley_sky->width;
+        sky_dome_height = p_mon_valley_sky->height;
         break;
     }
     CHECKERROR;
@@ -1104,11 +1146,15 @@ void Scene::DrawScene()
         p_barca_sky->Bind(13, programId, "SkydomeTex");
         sky_dome_width = p_barca_sky->width;
         sky_dome_height = p_barca_sky->height;
+        p_barca_irr_map->Bind(14, programId, "IrrMapTex");
+        break;
+    case 3:
+        p_mon_valley_sky->Bind(13, programId, "SkydomeTex");
+        sky_dome_width = p_mon_valley_sky->width;
+        sky_dome_height = p_mon_valley_sky->height;
+        p_mon_valley_irr_map->Bind(14, programId, "IrrMapTex");
         break;
     }
-    CHECKERROR;
-
-    p_irr_map->Bind(14, programId, "IrrMapTex");
     CHECKERROR;
 
     shadowPassRenderTarget.BindTexture(reflectionProgram->programId, 15, "shadowMap");
@@ -1180,7 +1226,7 @@ void Scene::DrawScene()
 	CHECKERROR;
 	lowerReflectionRenderTarget.Unbind();
     p_sky_dome->Unbind();
-    p_irr_map->Unbind();
+    p_barca_irr_map->Unbind();
     CHECKERROR;
 	// Turn off the shader
 	reflectionProgram->Unuse();
@@ -1196,6 +1242,8 @@ void Scene::DrawScene()
     lightingProgram->Use();
     programId = lightingProgram->programId;
     CHECKERROR;
+
+    postProcessingBuffer.Bind();
 
     //Bind the skydome texture
     switch (sky_dome_mode)
@@ -1214,11 +1262,15 @@ void Scene::DrawScene()
         p_barca_sky->Bind(13, programId, "SkydomeTex");
         sky_dome_width = p_barca_sky->width;
         sky_dome_height = p_barca_sky->height;
+        p_barca_irr_map->Bind(14, programId, "IrrMapTex");
+        break;
+    case 3:
+        p_mon_valley_sky->Bind(13, programId, "SkydomeTex");
+        sky_dome_width = p_mon_valley_sky->width;
+        sky_dome_height = p_mon_valley_sky->height;
+        p_mon_valley_irr_map->Bind(14, programId, "IrrMapTex");
         break;
     }
-    CHECKERROR;
-
-    p_irr_map->Bind(14, programId, "IrrMapTex");
     CHECKERROR;
 
     loc = glGetUniformLocation(programId, "skydome_width");
@@ -1296,18 +1348,137 @@ void Scene::DrawScene()
     loc = glGetUniformLocation(programId, "max_depth");
     glUniform1f(loc, max_depth);
 
-    loc = glGetUniformLocation(programId, "exposure");
-    glUniform1i(loc, exposure);
+    loc = glGetUniformLocation(programId, "bloomThreshold");
+    glUniform1f(loc, bloom_threshold);
+
+    GLenum buf[2] = { GL_COLOR_ATTACHMENT0_EXT , GL_COLOR_ATTACHMENT1_EXT };
+    glDrawBuffers(2, buf);
 
     //Draw a full screen quad to activate every pixel shader
     DrawFullScreenQuad();
     CHECKERROR; 
+
+    postProcessingBuffer.Unbind();
 
     p_sky_dome->Unbind();
     // Turn off the shader
     lightingProgram->Unuse();
     ////////////////////////////////////////////////////////////////////////////////
     // End of Lighting pass
+    ////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Bloom pass blur
+    ////////////////////////////////////////////////////////////////////////////////
+
+    RecalculateBloomKernel();
+
+    glBindBuffer(GL_ARRAY_BUFFER, blur_kernel_block_id);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, kernel_vals.size() * sizeof(float), &kernel_vals[0]);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    CHECKERROR;
+
+    for (unsigned int i = 0; i < bloom_pass_count; ++i) {
+        shadowBlur_H_Program->Use();
+        loc = glGetUniformLocation(shadowBlur_H_Program->programId, "width");
+        glUniform1i(loc, bloom_kernerl_width);
+        imageUnit = 0; // Perhaps 0 for input image and 1 for output image
+        loc = glGetUniformLocation(shadowBlur_H_Program->programId, "src");
+        glBindImageTexture(imageUnit, postProcessingBuffer.textureID[1],
+            0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+        glUniform1i(loc, imageUnit);
+
+
+        imageUnit = 1; // Perhaps 0 for input image and 1 for output image
+        loc = glGetUniformLocation(shadowBlur_H_Program->programId, "dst");
+        glBindImageTexture(imageUnit, postProcessingBuffer.textureID[2],
+            0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+        glUniform1i(loc, imageUnit);
+        // Tiles WxH image with groups sized 128x1
+        glDispatchCompute(glm::ceil(width / 128.0f), height, 1);
+
+        shadowBlur_H_Program->Unuse();
+        CHECKERROR;
+
+        shadowBlur_V_Program->Use();
+
+        loc = glGetUniformLocation(shadowBlur_V_Program->programId, "width");
+        glUniform1i(loc, bloom_kernerl_width);
+        imageUnit = 0; // Perhaps 0 for input image and 1 for output image
+        loc = glGetUniformLocation(shadowBlur_V_Program->programId, "src");
+        glBindImageTexture(imageUnit, postProcessingBuffer.textureID[2],
+            0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+        glUniform1i(loc, imageUnit);
+
+
+        imageUnit = 1; // Perhaps 0 for input image and 1 for output image
+        loc = glGetUniformLocation(shadowBlur_V_Program->programId, "dst");
+        glBindImageTexture(imageUnit, postProcessingBuffer.textureID[1],
+            0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+        glUniform1i(loc, imageUnit);
+        // Set all uniform and image variables
+        // Tiles WxH image with groups sized 128x1
+        glDispatchCompute(width, glm::ceil(height / 128.0f), 1);
+
+        shadowBlur_V_Program->Unuse();
+        CHECKERROR;
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // End of Bloom pass blur
+    ////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Post Processing pass
+    ////////////////////////////////////////////////////////////////////////////////
+
+    // Choose the post processing shader
+    postProcessing_Program->Use();
+    programId = postProcessing_Program->programId;
+    CHECKERROR;
+
+    postProcessingBuffer.BindTexture(programId, 15, "renderBuffer", 0);
+    postProcessingBuffer.BindTexture(programId, 16, "bloomBuffer", 1);
+
+    // Set the viewport, and clear the screen
+    glViewport(0, 0, width, height);
+    glClearColor(0.5, 0.5, 0.5, 1.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    CHECKERROR;
+
+    // @@ The scene specific parameters (uniform variables) used by
+    // the shader are set here.  Object specific parameters are set in
+    // the Draw procedure in object.cpp
+
+    loc = glGetUniformLocation(programId, "drawFbo");
+    glUniform1i(loc, draw_fbo);
+    loc = glGetUniformLocation(programId, "width");
+    glUniform1i(loc, width);
+    loc = glGetUniformLocation(programId, "height");
+    glUniform1i(loc, height);
+    CHECKERROR;
+
+    
+    loc = glGetUniformLocation(programId, "tone_mapping_mode");
+    glUniform1f(loc, tone_map_mode);
+    loc = glGetUniformLocation(programId, "exposure");
+    glUniform1f(loc, exposure);
+    loc = glGetUniformLocation(programId, "gamma");
+    glUniform1f(loc, gamma);
+    CHECKERROR;
+
+    loc = glGetUniformLocation(programId, "bloomEnabled");
+    glUniform1i(loc, bloom_enabled);
+    CHECKERROR;
+
+    //Draw a full screen quad to activate every pixel shader
+    DrawFullScreenQuad();
+    CHECKERROR;
+    // Turn off the shader
+    postProcessing_Program->Unuse();
+    ////////////////////////////////////////////////////////////////////////////////
+    // Post Processing pass
     ////////////////////////////////////////////////////////////////////////////////
 
     if (local_lights_on == 0)
@@ -1382,6 +1553,21 @@ void Scene::RecalculateKernel() {
     float exponent;
     float sum = 0;
     for (int i = -kernel_width; i <= kernel_width; ++i) {
+        exponent = (pow(i / (kernel_width / 2.0f), 2) * (-1.0f / 2.0f));
+        kernel_vals.push_back(pow(glm::e<float>(), exponent));
+        sum += kernel_vals.back();
+    }
+    float beta = 1 / sum;
+    for (unsigned int i = 0; i < kernel_vals.size(); ++i) {
+        kernel_vals[i] *= beta;
+    }
+}
+
+void Scene::RecalculateBloomKernel() {
+    kernel_vals.clear();
+    float exponent;
+    float sum = 0;
+    for (int i = -bloom_kernerl_width; i <= bloom_kernerl_width; ++i) {
         exponent = (pow(i / (kernel_width / 2.0f), 2) * (-1.0f / 2.0f));
         kernel_vals.push_back(pow(glm::e<float>(), exponent));
         sum += kernel_vals.back();

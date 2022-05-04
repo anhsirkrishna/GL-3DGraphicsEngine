@@ -23,6 +23,7 @@ uniform int objectId;
 uniform int lightingMode;
 uniform int textureMode;
 uniform vec3 diffuse, specular;
+uniform vec3 brightness;
 uniform float shininess;
 uniform vec3 light, ambient;
 uniform int width, height;
@@ -55,6 +56,7 @@ void main()
             vec2 uv = vec2(-atan(V.y, V.x)/(2*PI), acos(V.z)/PI);
             Kd = texture2D(SkydomeTex, uv).xyz;
             gl_FragData[1].w = 1;
+            Kd = pow(Kd, vec3(2.2));
             gl_FragData[2].xyz = Kd;
             return;
         }
@@ -62,6 +64,7 @@ void main()
             vec3 R = -(2* dot(V, N) * N - V);
             vec2 uv = vec2(-atan(R.y, R.x)/(2*PI), acos(R.z)/PI);
             Kd = texture2D(SkydomeTex, uv).xyz;
+            Kd = pow(Kd, vec3(2.2));
         }
 
         if (hasTexture != -1){
@@ -143,7 +146,7 @@ void main()
 	gl_FragData[0] = worldPos;
 	gl_FragData[1].xyz = normalize(N);
     gl_FragData[1].w = 0;
-	gl_FragData[2].xyz = Kd;
+	gl_FragData[2].xyz = Kd + brightness;
 	gl_FragData[3].xyz = Ks;
 	gl_FragData[3].w = shininess;
 	if (reflective)

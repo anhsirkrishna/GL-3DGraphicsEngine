@@ -62,6 +62,7 @@ void main() {
         alpha = (i+0.5f)/ao_sample_count;
         h = alpha*R/pixel_depth;
         theta = (2*PI*alpha*((7*ao_sample_count)/9)) + phi;
+        //theta = (2*PI*alpha*((7*ao_sample_count)/9));
         xy_i = xy + h*vec2(cos(theta), sin(theta));
         Pos_i = imageLoad(gBufferWorldPos, ivec2(xy_i.x*width, xy_i.y*height));
         Pi = Pos_i.xyz;

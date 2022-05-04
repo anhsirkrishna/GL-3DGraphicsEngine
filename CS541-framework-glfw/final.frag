@@ -38,13 +38,17 @@ uniform int drawFbo;
 uniform float shininess;
 uniform int width, height;
 uniform float min_depth, max_depth;
-uniform int exposure;
 uniform int ao_enabled;
+
+uniform float bloomThreshold;
 
 uniform HammersleyBlock {
     float sampling_count;
     float hammersley[2*100];
 };
+
+layout(location = 0) out vec4 RenderBuffer;
+layout(location = 1) out vec4 PostProcessBuffer;
 
 void main()
 {
@@ -65,6 +69,14 @@ void main()
     if (texture2D(gBufferNormalVec, uv).w == 1){
         isSkyDome = true;
         FragColor.xyz = Kd;
+        RenderBuffer = FragColor;
+
+        float luminance = dot(FragColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+	    if (luminance > bloomThreshold)
+		    PostProcessBuffer = vec4(vec3(FragColor.rgb), 1.0f);
+	    else
+		    PostProcessBuffer = vec4(vec3(0.0f), 1.0f);
+
         return;
     }
         
@@ -84,6 +96,7 @@ void main()
         FragColor.x = light_depth;
         FragColor.y = FragColor.x;
         FragColor.z = FragColor.x;
+        RenderBuffer = FragColor;
         return;
     }
     if (drawFbo == 1){
@@ -93,6 +106,7 @@ void main()
         FragColor.x = light_depth;
         FragColor.y = FragColor.x;
         FragColor.z = FragColor.x;
+        RenderBuffer = FragColor;
         return;
     }
     if (drawFbo == 2){
@@ -102,6 +116,7 @@ void main()
         FragColor.x = light_depth;
         FragColor.y = FragColor.x;
         FragColor.z = FragColor.x;
+        RenderBuffer = FragColor;
         return;
     }
     if (drawFbo == 3){
@@ -111,42 +126,52 @@ void main()
         FragColor.x = light_depth;
         FragColor.y = FragColor.x;
         FragColor.z = FragColor.x;
+        RenderBuffer = FragColor;
         return;
     }
     if (drawFbo == 4){
         FragColor.xyz = texture2D(upperReflectionMap, uv).xyz;
+        RenderBuffer = FragColor;
         return;
     }
     if (drawFbo == 5){
         FragColor.xyz = texture2D(lowerReflectionMap, uv).xyz;
+        RenderBuffer = FragColor;
         return;
     }
     if (drawFbo == 6){
         FragColor.xyz = texture2D(gBufferWorldPos, uv).xyz/100;
+        RenderBuffer = FragColor;
         return;
     }
     if (drawFbo == 7){
         FragColor.xyz = abs(texture2D(gBufferNormalVec, uv).xyz);
+        RenderBuffer = FragColor;
         return;
     }
     if (drawFbo == 8){
         FragColor.xyz = texture2D(gBufferDiffuse, uv).xyz;
+        RenderBuffer = FragColor;
         return;
     }
     if (drawFbo == 9){
         FragColor.xyz = texture2D(gBufferSpecular, uv).xyz;
+        RenderBuffer = FragColor;
         return;
     }
     if (drawFbo == 10){
         FragColor.xyz = texture2D(AOMap, uv).xyz;
+        RenderBuffer = FragColor;
         return;
     }
     if (drawFbo == 11){
         FragColor.xyz = texture2D(AOMap_1, uv).xyz;
+        RenderBuffer = FragColor;
         return;
     }
     if (drawFbo == 12){
         FragColor.xyz = texture2D(AOMap_2, uv).xyz;
+        RenderBuffer = FragColor;
         return;
     }
     
@@ -261,6 +286,7 @@ void main()
     else if (lightingMode == IBL_M){
         //Diffuse portion
         vec2 uv = vec2(-atan(-N.y, -N.x)/(2*PI), acos(-N.z)/PI);
+        
         vec3 irr_map_color = texture2D(IrrMapTex, uv).xyz;
         irr_map_color = pow(irr_map_color, vec3(2.2));
 
@@ -333,9 +359,9 @@ void main()
         spec_calc = avg_light/sampling_count;
       
         vec3 ambient_val = (Kd/PI)*irr_map_color;
-        if (ao_enabled ==1)
-            ambient_val *= ao_factor;
         outColor = ambient_val + spec_calc;
+        if (ao_enabled == 1)
+            outColor *= ao_factor;
     }
     else {
         vec3 brdf;
@@ -368,12 +394,6 @@ void main()
 
         outColor = ambient_val + ((light*LN*brdf) * (1-G));
     }
-
-    //Tone mapping for HDR level values
-    outColor = (exposure*outColor)/(exposure*outColor + 1);
-    //Convert color back into sRGB space
-    outColor = pow(outColor, vec3(1/2.2));
-    
     
     if (reflective){
         vec3 reflectionColor;
@@ -419,4 +439,12 @@ void main()
     }
     else
         FragColor.xyz = outColor;
+    
+    RenderBuffer = FragColor;
+
+    float luminance = dot(FragColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+	if (luminance > bloomThreshold)
+		PostProcessBuffer = vec4(vec3(FragColor.rgb), 1.0f);
+	else
+		PostProcessBuffer = vec4(vec3(0.0f), 1.0f);
 }

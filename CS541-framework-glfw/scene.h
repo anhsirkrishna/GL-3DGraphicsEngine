@@ -104,6 +104,8 @@ public:
     ShaderProgram* AOProgram;
     ShaderProgram* bilinear_H_Program;
     ShaderProgram* bilinear_V_Program;
+    ShaderProgram* postProcessing_Program;
+    ShaderProgram* postProcessing_Compute;
     // @@ Declare additional shaders if necessary
 
     //FBO decleration
@@ -117,14 +119,17 @@ public:
     Texture* p_sky_dome_cage;
     Texture* p_sky_dome_night;
     Texture* p_barca_sky;
-    Texture* p_irr_map;
+    Texture* p_barca_irr_map;
+    Texture* p_mon_valley_sky;
+    Texture* p_mon_valley_irr_map;
 
     int sky_dome_mode = 2;
     int texture_mode = 1;
-    int draw_fbo = 10;
+    int draw_fbo = 14;
     int local_lights_on = 0;
 
     int ao_enabled = 1;
+    int tone_map_mode = 1;
     // Options menu stuff
     bool show_demo_window;
 
@@ -142,9 +147,17 @@ public:
     FBO shadowBlurOutput;
     FBO bilinearFilterOutput;
     FBO bilinearFilterOutput_2;
+    FBO postProcessingBuffer;
     int kernel_width = 3;
     int bilinear_kernel_width = 3;
-    int exposure = 3;
+    int bloom_kernerl_width = 10;
+    float exposure = 8.0f;
+    float gamma = 2.2f;
+
+    float bloom_threshold = 0.6f;
+    int bloom_pass_count = 20;
+    int bloom_enabled = 1;
+
     std::vector<float> kernel_vals;
     std::vector<float> bilinear_kernel_vals;
 
@@ -165,6 +178,7 @@ public:
     void DrawLocalLights(ShaderProgram* program);
     void RebuildGbuffer(int w, int h);
     void RecalculateKernel();
+    void RecalculateBloomKernel();
     void RecalculateBilinearKernel();
     void RecalculateHBlock();
 };
