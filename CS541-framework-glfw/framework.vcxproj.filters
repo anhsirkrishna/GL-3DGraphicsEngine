@@ -94,6 +94,9 @@
     <None Include="post.vert">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="upsample.comp">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">

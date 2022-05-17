@@ -158,6 +158,7 @@
     <None Include="shadow.frag" />
     <None Include="shadow.vert" />
     <None Include="shadow_vertical.comp" />
+    <None Include="upsample.comp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

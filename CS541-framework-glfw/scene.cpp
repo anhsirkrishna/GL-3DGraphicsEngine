@@ -330,29 +330,37 @@ void Scene::InitializeScene()
     glBindFragDataLocation(localLightsProgram->programId, 0, "RenderBuffer");
     glBindFragDataLocation(localLightsProgram->programId, 1, "PostProcessBuffer");
 
-    glBindTexture(GL_TEXTURE_2D, postProcessingBuffer.textureID[1]);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, downsampling_passes);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (int)GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (int)GL_LINEAR_MIPMAP_LINEAR);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    int downsampling_width;
+    int downsampling_height;
+    for (unsigned int i = 1; i <= 2; ++i) {
+        glBindTexture(GL_TEXTURE_2D, postProcessingBuffer.textureID[i]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, downsampling_passes);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (int)GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (int)GL_LINEAR_MIPMAP_LINEAR);
+        glBindTexture(GL_TEXTURE_2D, 0);
 
-    int downsampling_width = 750/2;
-    int downsampling_height = 750/2;
-    glBindTexture(GL_TEXTURE_2D, postProcessingBuffer.textureID[1]);
-    for (unsigned int mip_level = 0; mip_level < downsampling_passes; ++mip_level) {
-        glTexImage2D(GL_TEXTURE_2D, mip_level + 1, (int)GL_RGBA32F,
-            downsampling_width, downsampling_height, 0, GL_RGBA, GL_FLOAT, NULL);
-        CHECKERROR;
-        downsampling_width /= 2;
-        downsampling_height /= 2;
+        downsampling_width = 750 / 2;
+        downsampling_height = 750 / 2;
+        glBindTexture(GL_TEXTURE_2D, postProcessingBuffer.textureID[i]);
+        for (unsigned int mip_level = 0; mip_level < downsampling_passes; ++mip_level) {
+            glTexImage2D(GL_TEXTURE_2D, mip_level + 1, (int)GL_RGBA32F,
+                downsampling_width, downsampling_height, 0, GL_RGBA, GL_FLOAT, NULL);
+            CHECKERROR;
+            downsampling_width /= 2;
+            downsampling_height /= 2;
+        }
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
-    glBindTexture(GL_TEXTURE_2D, 0);
 
     //Create a compute shader for the downsampling pass 
     downsampling_Compute = new ShaderProgram();
     downsampling_Compute->AddShader("downsample.comp", GL_COMPUTE_SHADER);
     downsampling_Compute->LinkProgram();
 
+    //Create a compute shader for the upsampling + blending pass 
+    upsampling_Compute = new ShaderProgram();
+    upsampling_Compute->AddShader("upsample.comp", GL_COMPUTE_SHADER);
+    upsampling_Compute->LinkProgram();
 
     // Create all the Polygon shapes
     proceduralground = new ProceduralGround(grndSize, 400,
@@ -595,8 +603,9 @@ void Scene::DrawMenu()
             if (ImGui::MenuItem("Draw AO Map", "", draw_fbo == 10)) { draw_fbo = 10; }
             if (ImGui::MenuItem("Draw AO Map Blur1", "", draw_fbo == 11)) { draw_fbo = 11; }
             if (ImGui::MenuItem("Draw AO Map Blur2", "", draw_fbo == 12)) { draw_fbo = 12; }
-            if (ImGui::MenuItem("BloomBuffer", "", draw_fbo == 13)) { draw_fbo = 13; }
-            if (ImGui::MenuItem("Disable", "", draw_fbo == 14)) { draw_fbo = 14; }
+            if (ImGui::MenuItem("Downsample Buffer", "", draw_fbo == 13)) { draw_fbo = 13; }
+            if (ImGui::MenuItem("Upsample Buffer", "", draw_fbo == 14)) { draw_fbo = 14; }
+            if (ImGui::MenuItem("Disable", "", draw_fbo == 15)) { draw_fbo = 15; }
             ImGui::EndMenu();
         }
 
@@ -730,24 +739,25 @@ void Scene::RebuildGbuffer(int w, int h){
 
     postProcessingBuffer.DeleteFBO();
     postProcessingBuffer.CreateFBO(w, h, 3);
+    for (unsigned int i = 1; i <= 2; ++i) {
+        glBindTexture(GL_TEXTURE_2D, postProcessingBuffer.textureID[i]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, downsampling_passes);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (int)GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (int)GL_LINEAR_MIPMAP_LINEAR);
+        glBindTexture(GL_TEXTURE_2D, 0);
 
-    glBindTexture(GL_TEXTURE_2D, postProcessingBuffer.textureID[1]);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, downsampling_passes);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (int)GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (int)GL_LINEAR_MIPMAP_LINEAR);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    int downsampling_width = w / 2;
-    int downsampling_height = h / 2;
-    glBindTexture(GL_TEXTURE_2D, postProcessingBuffer.textureID[1]);
-    for (unsigned int mip_level = 0; mip_level < downsampling_passes; ++mip_level) {
-        glTexImage2D(GL_TEXTURE_2D, mip_level + 1, (int)GL_RGBA32F,
-            downsampling_width, downsampling_height, 0, GL_RGBA, GL_FLOAT, NULL);
-        CHECKERROR;
-        downsampling_width /= 2;
-        downsampling_height /= 2;
+        int downsampling_width = w / 2;
+        int downsampling_height = h / 2;
+        glBindTexture(GL_TEXTURE_2D, postProcessingBuffer.textureID[i]);
+        for (unsigned int mip_level = 0; mip_level < downsampling_passes; ++mip_level) {
+            glTexImage2D(GL_TEXTURE_2D, mip_level + 1, (int)GL_RGBA32F,
+                downsampling_width, downsampling_height, 0, GL_RGBA, GL_FLOAT, NULL);
+            CHECKERROR;
+            downsampling_width /= 2;
+            downsampling_height /= 2;
+        }
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
-    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void Scene::BuildTransforms()
@@ -1480,7 +1490,10 @@ void Scene::DrawScene()
     int start_height = height;
     int downsampling_width = width/2;
     int downsampling_height = height/2;
-
+    std::vector<int> width_list;
+    std::vector<int> height_list;
+    width_list.push_back(start_width);
+    height_list.push_back(start_height);
     downsampling_Compute->Use();
     postProcessingBuffer.BindTexture(downsampling_Compute->programId, 0, "inputTex", 1);
 
@@ -1510,12 +1523,51 @@ void Scene::DrawScene()
         start_height = downsampling_height;
         downsampling_width /= 2;
         downsampling_height /= 2;
+
+        width_list.push_back(start_width);
+        height_list.push_back(start_height);
     }
     downsampling_Compute->Unuse();
     CHECKERROR;
 
     ////////////////////////////////////////////////////////////////////////////////
-    // End of Bloom pass blur
+    // End of Bloom pass downsample
+    ////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Bloom pass upsample + additive blending
+    ////////////////////////////////////////////////////////////////////////////////
+
+    upsampling_Compute->Use();
+    postProcessingBuffer.BindTexture(upsampling_Compute->programId, 0, "inputTex", 1);
+
+    for (int mip_level = downsampling_passes; mip_level > 0; --mip_level) {
+        loc = glGetUniformLocation(upsampling_Compute->programId, "mip_level");
+        glUniform1f(loc, (float)mip_level);
+
+        imageUnit = 1; // Perhaps 0 for input image and 1 for output image
+        loc = glGetUniformLocation(upsampling_Compute->programId, "dst");
+        glBindImageTexture(imageUnit, postProcessingBuffer.textureID[2],
+            mip_level - 1, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+        CHECKERROR;
+        glUniform1i(loc, imageUnit);
+
+        //width and height before the upsampling is performed
+        loc = glGetUniformLocation(upsampling_Compute->programId, "width");
+        glUniform1i(loc, width_list[mip_level]);
+        loc = glGetUniformLocation(upsampling_Compute->programId, "height");
+        glUniform1i(loc, height_list[mip_level]);
+        CHECKERROR;
+
+        // Runs with double width and double height of the previous pass.
+        glDispatchCompute(width_list[mip_level-1], height_list[mip_level-1], 1);
+        CHECKERROR;
+    }
+    upsampling_Compute->Unuse();
+    CHECKERROR;
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // End of Bloom pass upsample + additive blending
     ////////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -1529,7 +1581,7 @@ void Scene::DrawScene()
 
     postProcessingBuffer.BindTexture(programId, 15, "renderBuffer", 0);
     postProcessingBuffer.BindTexture(programId, 16, "bloomBuffer", 1);
-
+    postProcessingBuffer.BindTexture(programId, 17, "upsampleBuffer", 2);
     // Set the viewport, and clear the screen
     glViewport(0, 0, width, height);
     glClearColor(0.5, 0.5, 0.5, 1.0);

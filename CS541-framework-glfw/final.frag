@@ -445,6 +445,11 @@ void main()
     float luminance = dot(FragColor.rgb, vec3(0.2126, 0.7152, 0.0722));
 	if (luminance > bloomThreshold)
 		PostProcessBuffer = vec4(vec3(FragColor.rgb), 1.0f);
-	else
-		PostProcessBuffer = vec4(vec3(0.0f), 1.0f);
+	else{
+        PostProcessBuffer = vec4(vec3(FragColor.rgb), 1.0f);
+    }
+        PostProcessBuffer = vec4(vec3(max(FragColor.r, 0), 
+                                      max(FragColor.g, 0), 
+                                      max(FragColor.b, 0)), 1.0f);
+		//PostProcessBuffer = vec4(vec3(0.0f), 1.0f);
 }

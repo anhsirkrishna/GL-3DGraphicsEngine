@@ -4,6 +4,7 @@
 
 uniform sampler2D renderBuffer;
 uniform sampler2D bloomBuffer;
+uniform sampler2D upsampleBuffer;
 
 uniform int drawFbo;
 
@@ -21,13 +22,16 @@ layout(location = 0) out vec4 out_color;
 void main() {
 	vec2 uv = gl_FragCoord.xy / vec2(width, height);
 	vec4 fragColor = texture(renderBuffer, uv);
-	vec4 bloomColor = texture(bloomBuffer, uv);
+	vec4 bloomColor = texture(upsampleBuffer, uv);
 	if (drawFbo < 13){
 		out_color = fragColor;
 		return;
 	}
 	if (drawFbo == 13){
 		out_color = textureLod(bloomBuffer, uv, bloom_mip_level);
+	}
+	else if (drawFbo == 14){
+		out_color = textureLod(upsampleBuffer, uv, bloom_mip_level);
 	}
 	else {
 		if (bloomEnabled == 1)

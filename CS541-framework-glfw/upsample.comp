@@ -1,0 +1,55 @@
+/////////////////////////////////////////////////////////////////////////
+// Compute shader for upsampling
+////////////////////////////////////////////////////////////////////////
+#version 430
+
+// Declares thread group size
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+//src image as 4 channel 32bit float readonly
+uniform sampler2D inputTex;
+
+// dst image as 1 channel 32bit float writeonly
+layout (rgba32f) uniform writeonly image2D dst;
+
+uniform int width, height;
+uniform float mip_level;
+
+
+void main() {
+    vec2 texel_size = vec2(1.0f/width, 1.0f/height);
+    vec4 d = texel_size.xyxy * vec4(1.0, 1.0, -1.0, 0.0);
+	// Combo of groupID, groupSize and localID
+	ivec2 gpos = ivec2(gl_GlobalInvocationID.xy); 
+	//Since we need to upsample the image, we divide by 2.
+    gpos /= 2;
+    
+
+	//Following lines of code all read in texels from the input texture
+    //at the LOD specified by mip_level with a 3x3 Tent filter
+    // [Jimenez14] http://goo.gl/eomGso
+    // . . . . . 
+    // . 1 2 1 . 
+    // . 2 4 2 . * (1/16)
+    // . 1 2 1 . 
+    // . . . . . 
+    //=================================================================
+    vec2 uv = vec2(gpos.x, gpos.y) / vec2(width, height);
+    
+    vec4 s = (textureLod(inputTex, uv + d.zy, mip_level) * 1.0);
+    s     += (textureLod(inputTex, uv + d.wy, mip_level) * 2.0);
+    s     += (textureLod(inputTex, uv + d.xy, mip_level) * 1.0);
+
+    s     += (textureLod(inputTex, uv + d.zw, mip_level) * 2.0);
+    s     += (textureLod(inputTex, uv       , mip_level) * 4.0);
+    s     += (textureLod(inputTex, uv + d.xw, mip_level) * 2.0);
+
+    s     += (textureLod(inputTex, uv - d.xy, mip_level) * 1.0);
+    s     += (textureLod(inputTex, uv - d.wy, mip_level) * 2.0);
+    s     += (textureLod(inputTex, uv - d.zy, mip_level) * 1.0);
+
+    //=================================================================
+    vec4 op = textureLod(inputTex, uv, mip_level - 1);
+    op += s;
+	imageStore(dst, ivec2(gl_GlobalInvocationID.xy), op); // Write to destination image
+}

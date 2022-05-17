@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////
-// Compute shader for shadow map blurring
+// Compute shader for downsampling
 ////////////////////////////////////////////////////////////////////////
 #version 430
 
@@ -39,16 +39,16 @@ void main() {
     // . K . L . M .
     // . . . . . . .
     //=================================================================
-    vec2 uv = vec2(gpos.x + 0.5f, gpos.y + 0.5f) / vec2(width, height);
+    vec2 uv = vec2(gpos.x, gpos.y) / vec2(width, height);
     
     vec4 A = textureLod(inputTex, uv + (texel_size * vec2(-1.0, 1.0)), mip_level);
-    vec4 B = textureLod(inputTex, uv + (texel_size * vec2(0.0, 1.0)), mip_level);
-    vec4 C = textureLod(inputTex, uv + (texel_size * vec2(1.0, 1.0)), mip_level);
+    vec4 B = textureLod(inputTex, uv + (texel_size * vec2(0.0, 1.0)) , mip_level);
+    vec4 C = textureLod(inputTex, uv + (texel_size * vec2(1.0, 1.0)) , mip_level);
     vec4 D = textureLod(inputTex, uv + (texel_size * vec2(-0.5, 0.5)), mip_level);
-    vec4 E = textureLod(inputTex, uv + (texel_size * vec2(0.5, 0.5)), mip_level);
+    vec4 E = textureLod(inputTex, uv + (texel_size * vec2(0.5, 0.5)) , mip_level);
     vec4 F = textureLod(inputTex, uv + (texel_size * vec2(-1.0, 0.0)), mip_level);
-    vec4 G = textureLod(inputTex, uv, mip_level);
-    vec4 H = textureLod(inputTex, uv + (texel_size * vec2(1.0, 0.0)), mip_level);
+    vec4 G = textureLod(inputTex, uv,                                  mip_level);
+    vec4 H = textureLod(inputTex, uv + (texel_size * vec2(1.0, 0.0)) , mip_level);
     vec4 I = textureLod(inputTex, uv + (texel_size * vec2(-0.5, -0.5)), mip_level);
     vec4 J = textureLod(inputTex, uv + (texel_size * vec2(0.5, -0.5)), mip_level);
     vec4 K = textureLod(inputTex, uv + (texel_size * vec2(-1.0, -1.0)), mip_level);
