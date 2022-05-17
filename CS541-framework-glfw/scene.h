@@ -106,6 +106,7 @@ public:
     ShaderProgram* bilinear_V_Program;
     ShaderProgram* postProcessing_Program;
     ShaderProgram* postProcessing_Compute;
+    ShaderProgram* downsampling_Compute;
     // @@ Declare additional shaders if necessary
 
     //FBO decleration
@@ -157,6 +158,8 @@ public:
     float bloom_threshold = 0.6f;
     int bloom_pass_count = 20;
     int bloom_enabled = 1;
+    int bloom_mip_level = 0;
+    int downsampling_passes = 8;
 
     std::vector<float> kernel_vals;
     std::vector<float> bilinear_kernel_vals;

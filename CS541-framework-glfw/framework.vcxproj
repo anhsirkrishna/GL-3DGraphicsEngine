@@ -139,6 +139,7 @@
     <None Include="ao.vert" />
     <None Include="bilinear_filter_horizontal.comp" />
     <None Include="bilinear_filter_vertical.comp" />
+    <None Include="downsample.comp" />
     <None Include="final.frag" />
     <None Include="final.vert" />
     <None Include="gbuffer.frag" />
@@ -148,6 +149,9 @@
     <None Include="lighting.vert" />
     <None Include="local_lights.frag" />
     <None Include="local_lights.vert" />
+    <None Include="post.comp" />
+    <None Include="post.frag" />
+    <None Include="post.vert" />
     <None Include="reflection.frag" />
     <None Include="reflection.vert" />
     <None Include="shadow_horizontal.comp" />

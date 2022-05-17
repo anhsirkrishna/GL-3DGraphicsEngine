@@ -82,6 +82,18 @@
     <None Include="bilinear_filter_vertical.comp">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="downsample.comp">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="post.comp">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="post.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="post.vert">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shaders">

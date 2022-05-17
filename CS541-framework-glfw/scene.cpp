@@ -84,7 +84,7 @@ Object* SphereOfSpheres(Shape* SpherePolygons)
         for (float row=0.075;  row<PI/2.0;  row += PI/2.0/6.0) {   
             glm::vec3 hue = HSV2RGB(angle/360.0, 1.0f-2.0f*row/PI, 1.0f);
             glm::vec3 brightness(hue[0]*10, hue[1] * 10, hue[2] * 10);
-            brightness = glm::vec3(0.0, 0.0, 0.0);
+            //brightness = glm::vec3(0.0, 0.0, 0.0);
             Object* sp = new Object(SpherePolygons, spheresId,
                                     hue, glm::vec3(1.5, 1.5, 1.5), 0.4, false, -1, -1, -1, -1, brightness); //phong alpha = 120
             float s = sin(row);
@@ -330,6 +330,30 @@ void Scene::InitializeScene()
     glBindFragDataLocation(localLightsProgram->programId, 0, "RenderBuffer");
     glBindFragDataLocation(localLightsProgram->programId, 1, "PostProcessBuffer");
 
+    glBindTexture(GL_TEXTURE_2D, postProcessingBuffer.textureID[1]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, downsampling_passes);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (int)GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (int)GL_LINEAR_MIPMAP_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    int downsampling_width = 750/2;
+    int downsampling_height = 750/2;
+    glBindTexture(GL_TEXTURE_2D, postProcessingBuffer.textureID[1]);
+    for (unsigned int mip_level = 0; mip_level < downsampling_passes; ++mip_level) {
+        glTexImage2D(GL_TEXTURE_2D, mip_level + 1, (int)GL_RGBA32F,
+            downsampling_width, downsampling_height, 0, GL_RGBA, GL_FLOAT, NULL);
+        CHECKERROR;
+        downsampling_width /= 2;
+        downsampling_height /= 2;
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    //Create a compute shader for the downsampling pass 
+    downsampling_Compute = new ShaderProgram();
+    downsampling_Compute->AddShader("downsample.comp", GL_COMPUTE_SHADER);
+    downsampling_Compute->LinkProgram();
+
+
     // Create all the Polygon shapes
     proceduralground = new ProceduralGround(grndSize, 400,
                                      grndOctaves, grndFreq, grndPersistence,
@@ -552,6 +576,8 @@ void Scene::DrawMenu()
             if (ImGui::MenuItem("Bloom Disabled", "", bloom_enabled == 0)) { bloom_enabled = 0; }
             ImGui::SliderFloat("Bloom Threshold ", &bloom_threshold, 0, 3);
             ImGui::SliderInt("Bloom Blur Count", &bloom_pass_count, 1, 30);
+            ImGui::SliderInt("Downsampling pass count", &downsampling_passes, 2, 8);
+            ImGui::SliderInt("Bloom Mip Level", &bloom_mip_level, 0, downsampling_passes);
             ImGui::EndMenu();
         }
 
@@ -704,6 +730,24 @@ void Scene::RebuildGbuffer(int w, int h){
 
     postProcessingBuffer.DeleteFBO();
     postProcessingBuffer.CreateFBO(w, h, 3);
+
+    glBindTexture(GL_TEXTURE_2D, postProcessingBuffer.textureID[1]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, downsampling_passes);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (int)GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (int)GL_LINEAR_MIPMAP_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    int downsampling_width = w / 2;
+    int downsampling_height = h / 2;
+    glBindTexture(GL_TEXTURE_2D, postProcessingBuffer.textureID[1]);
+    for (unsigned int mip_level = 0; mip_level < downsampling_passes; ++mip_level) {
+        glTexImage2D(GL_TEXTURE_2D, mip_level + 1, (int)GL_RGBA32F,
+            downsampling_width, downsampling_height, 0, GL_RGBA, GL_FLOAT, NULL);
+        CHECKERROR;
+        downsampling_width /= 2;
+        downsampling_height /= 2;
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void Scene::BuildTransforms()
@@ -1370,7 +1414,7 @@ void Scene::DrawScene()
     ////////////////////////////////////////////////////////////////////////////////
     // Bloom pass blur
     ////////////////////////////////////////////////////////////////////////////////
-
+    /*
     RecalculateBloomKernel();
 
     glBindBuffer(GL_ARRAY_BUFFER, blur_kernel_block_id);
@@ -1423,7 +1467,52 @@ void Scene::DrawScene()
         shadowBlur_V_Program->Unuse();
         CHECKERROR;
     }
+    */
 
+    ////////////////////////////////////////////////////////////////////////////////
+    // End of Bloom pass blur
+    ////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Bloom pass downsampling
+    ////////////////////////////////////////////////////////////////////////////////
+    int start_width = width;
+    int start_height = height;
+    int downsampling_width = width/2;
+    int downsampling_height = height/2;
+
+    downsampling_Compute->Use();
+    postProcessingBuffer.BindTexture(downsampling_Compute->programId, 0, "inputTex", 1);
+
+    for (unsigned int mip_level = 0; mip_level < downsampling_passes; ++mip_level) {
+        loc = glGetUniformLocation(downsampling_Compute->programId, "mip_level");
+        glUniform1f(loc, float(mip_level));
+
+        imageUnit = 1; // Perhaps 0 for input image and 1 for output image
+        loc = glGetUniformLocation(downsampling_Compute->programId, "dst");
+        glBindImageTexture(imageUnit, postProcessingBuffer.textureID[1],
+            mip_level+1, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+        CHECKERROR;
+        glUniform1i(loc, imageUnit);
+
+        //width and height before the downsampling is performed
+        loc = glGetUniformLocation(downsampling_Compute->programId, "width");
+        glUniform1i(loc, start_width);
+        loc = glGetUniformLocation(downsampling_Compute->programId, "height");
+        glUniform1i(loc, start_height);
+        CHECKERROR;
+
+        // Runs with half width and half height of the previous pass.
+        glDispatchCompute(downsampling_width, downsampling_height, 1);
+        CHECKERROR;
+
+        start_width = downsampling_width;
+        start_height = downsampling_height;
+        downsampling_width /= 2;
+        downsampling_height /= 2;
+    }
+    downsampling_Compute->Unuse();
+    CHECKERROR;
 
     ////////////////////////////////////////////////////////////////////////////////
     // End of Bloom pass blur
@@ -1470,6 +1559,10 @@ void Scene::DrawScene()
 
     loc = glGetUniformLocation(programId, "bloomEnabled");
     glUniform1i(loc, bloom_enabled);
+    CHECKERROR;
+
+    loc = glGetUniformLocation(programId, "bloom_mip_level");
+    glUniform1f(loc, float(bloom_mip_level));
     CHECKERROR;
 
     //Draw a full screen quad to activate every pixel shader

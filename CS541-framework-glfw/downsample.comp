@@ -1,0 +1,65 @@
+/////////////////////////////////////////////////////////////////////////
+// Compute shader for shadow map blurring
+////////////////////////////////////////////////////////////////////////
+#version 430
+
+const float PI = 3.14159f;
+
+// Declares thread group size
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+//src image as 4 channel 32bit float readonly
+uniform sampler2D inputTex;
+
+// dst image as 1 channel 32bit float writeonly
+layout (rgba32f) uniform writeonly image2D dst;
+
+uniform int width, height;
+uniform float mip_level;
+
+//Average * weights
+const vec2 div = (1.0/4.0) * vec2(0.5, 0.125);
+
+void main() {
+
+	// Combo of groupID, groupSize and localID
+	ivec2 gpos = ivec2(gl_GlobalInvocationID.xy); 
+	//Since we need to downsample the image, we read every other texel.
+    gpos *= 2;
+    vec2 texel_size = vec2(1.0f/width, 1.0f/height);
+
+	//Following lines of code all read in texels from the input texture
+    //at the LOD specified by mip_level
+    // [Jimenez14] http://goo.gl/eomGso
+    // . . . . . . .
+    // . A . B . C .
+    // . . D . E . .
+    // . F . G . H .
+    // . . I . J . .
+    // . K . L . M .
+    // . . . . . . .
+    //=================================================================
+    vec2 uv = vec2(gpos.x + 0.5f, gpos.y + 0.5f) / vec2(width, height);
+    
+    vec4 A = textureLod(inputTex, uv + (texel_size * vec2(-1.0, 1.0)), mip_level);
+    vec4 B = textureLod(inputTex, uv + (texel_size * vec2(0.0, 1.0)), mip_level);
+    vec4 C = textureLod(inputTex, uv + (texel_size * vec2(1.0, 1.0)), mip_level);
+    vec4 D = textureLod(inputTex, uv + (texel_size * vec2(-0.5, 0.5)), mip_level);
+    vec4 E = textureLod(inputTex, uv + (texel_size * vec2(0.5, 0.5)), mip_level);
+    vec4 F = textureLod(inputTex, uv + (texel_size * vec2(-1.0, 0.0)), mip_level);
+    vec4 G = textureLod(inputTex, uv, mip_level);
+    vec4 H = textureLod(inputTex, uv + (texel_size * vec2(1.0, 0.0)), mip_level);
+    vec4 I = textureLod(inputTex, uv + (texel_size * vec2(-0.5, -0.5)), mip_level);
+    vec4 J = textureLod(inputTex, uv + (texel_size * vec2(0.5, -0.5)), mip_level);
+    vec4 K = textureLod(inputTex, uv + (texel_size * vec2(-1.0, -1.0)), mip_level);
+    vec4 L = textureLod(inputTex, uv + (texel_size * vec2(0.0, -1.0)), mip_level);
+    vec4 M = textureLod(inputTex, uv + (texel_size * vec2(1.0, -1.0)), mip_level);
+    //=================================================================
+
+    vec4 op = (D + E + I + J) * div.x;
+    op += (A + B + G + F) * div.y;
+    op += (B + C + H + G) * div.y;
+    op += (F + G + L + K) * div.y;
+    op += (G + H + M + L) * div.y;
+	imageStore(dst, ivec2(gl_GlobalInvocationID.xy), op); // Write to destination image
+}

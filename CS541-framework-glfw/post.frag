@@ -14,6 +14,8 @@ uniform float gamma;
 
 uniform int bloomEnabled;
 
+uniform float bloom_mip_level;
+
 layout(location = 0) out vec4 out_color;
 
 void main() {
@@ -25,7 +27,7 @@ void main() {
 		return;
 	}
 	if (drawFbo == 13){
-		out_color = texture(bloomBuffer, uv) * 10;
+		out_color = textureLod(bloomBuffer, uv, bloom_mip_level);
 	}
 	else {
 		if (bloomEnabled == 1)
