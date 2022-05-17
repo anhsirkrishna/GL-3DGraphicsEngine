@@ -583,6 +583,7 @@ void Scene::DrawMenu()
             if (ImGui::MenuItem("Bloom Enabled", "", bloom_enabled == 1)) { bloom_enabled = 1; }
             if (ImGui::MenuItem("Bloom Disabled", "", bloom_enabled == 0)) { bloom_enabled = 0; }
             ImGui::SliderFloat("Bloom Threshold ", &bloom_threshold, 0, 3);
+            ImGui::SliderFloat("Bloom Factor ", &bloomFactor, 0, 1);
             ImGui::SliderInt("Bloom Blur Count", &bloom_pass_count, 1, 30);
             ImGui::SliderInt("Downsampling pass count", &downsampling_passes, 2, 8);
             ImGui::SliderInt("Bloom Mip Level", &bloom_mip_level, 0, downsampling_passes);
@@ -1611,6 +1612,10 @@ void Scene::DrawScene()
 
     loc = glGetUniformLocation(programId, "bloomEnabled");
     glUniform1i(loc, bloom_enabled);
+    CHECKERROR;
+
+    loc = glGetUniformLocation(programId, "bloomFactor");
+    glUniform1f(loc, bloomFactor);
     CHECKERROR;
 
     loc = glGetUniformLocation(programId, "bloom_mip_level");

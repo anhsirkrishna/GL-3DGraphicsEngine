@@ -127,7 +127,7 @@ public:
 
     int sky_dome_mode = 2;
     int texture_mode = 1;
-    int draw_fbo = 14;
+    int draw_fbo = 15;
     int local_lights_on = 0;
 
     int ao_enabled = 1;
@@ -153,14 +153,15 @@ public:
     int kernel_width = 3;
     int bilinear_kernel_width = 3;
     int bloom_kernerl_width = 10;
-    float exposure = 8.0f;
+    float exposure = 3.0f;
     float gamma = 2.2f;
 
-    float bloom_threshold = 0.6f;
+    float bloom_threshold = 0.1f;
     int bloom_pass_count = 20;
     int bloom_enabled = 1;
     int bloom_mip_level = 0;
     int downsampling_passes = 7;
+    float bloomFactor = 0.1f;
 
     std::vector<float> kernel_vals;
     std::vector<float> bilinear_kernel_vals;

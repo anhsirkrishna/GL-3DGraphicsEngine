@@ -14,6 +14,7 @@ uniform float tone_mapping_mode;
 uniform float gamma;
 
 uniform int bloomEnabled;
+uniform float bloomFactor;
 
 uniform float bloom_mip_level;
 
@@ -35,7 +36,7 @@ void main() {
 	}
 	else {
 		if (bloomEnabled == 1)
-			fragColor = fragColor + bloomColor;
+			fragColor = fragColor + (bloomColor*bloomFactor);
 
 		if (tone_mapping_mode == 0)
 			fragColor.rgb = (exposure*fragColor.rgb)/(exposure*fragColor.rgb + 1);
