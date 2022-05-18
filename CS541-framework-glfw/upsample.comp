@@ -47,7 +47,8 @@ void main() {
     s     += (textureLod(inputTex, uv - d.xy, mip_level) * 1.0);
     s     += (textureLod(inputTex, uv - d.wy, mip_level) * 2.0);
     s     += (textureLod(inputTex, uv - d.zy, mip_level) * 1.0);
-
+    
+    s *= (1.0f/16.0f);
     //=================================================================
     vec4 op = textureLod(inputTex, uv, mip_level - 1);
     op += s;

@@ -61,5 +61,6 @@ void main() {
     op += (B + C + H + G) * div.y;
     op += (F + G + L + K) * div.y;
     op += (G + H + M + L) * div.y;
+
 	imageStore(dst, ivec2(gl_GlobalInvocationID.xy), op); // Write to destination image
 }

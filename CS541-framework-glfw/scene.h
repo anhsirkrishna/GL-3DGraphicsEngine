@@ -153,15 +153,16 @@ public:
     int kernel_width = 3;
     int bilinear_kernel_width = 3;
     int bloom_kernerl_width = 10;
-    float exposure = 3.0f;
+    float exposure = 6.0f;
     float gamma = 2.2f;
 
-    float bloom_threshold = 0.1f;
+    float bloom_threshold = 0.04f;
     int bloom_pass_count = 20;
     int bloom_enabled = 1;
     int bloom_mip_level = 0;
     int downsampling_passes = 7;
-    float bloomFactor = 0.1f;
+    int bloom_mode = 0;
+    float bloomFactor = 1.0f;
 
     std::vector<float> kernel_vals;
     std::vector<float> bilinear_kernel_vals;

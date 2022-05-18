@@ -580,8 +580,14 @@ void Scene::DrawMenu()
             if (ImGui::MenuItem("Tone Map 1", "", tone_map_mode == 1)) { tone_map_mode = 1; }
             ImGui::SliderFloat("Exposure ", &exposure, 2, 20);
             ImGui::SliderFloat("Gamma ", &gamma, 1, 20);
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Bloom ")) {
             if (ImGui::MenuItem("Bloom Enabled", "", bloom_enabled == 1)) { bloom_enabled = 1; }
             if (ImGui::MenuItem("Bloom Disabled", "", bloom_enabled == 0)) { bloom_enabled = 0; }
+            if (ImGui::MenuItem("Bloom Mode 1", "", bloom_mode == 0)) { bloom_mode = 0; }
+            if (ImGui::MenuItem("Bloom Mode 2", "", bloom_mode == 1)) { bloom_mode = 1; }
             ImGui::SliderFloat("Bloom Threshold ", &bloom_threshold, 0, 3);
             ImGui::SliderFloat("Bloom Factor ", &bloomFactor, 0, 1);
             ImGui::SliderInt("Bloom Blur Count", &bloom_pass_count, 1, 30);
@@ -1425,60 +1431,60 @@ void Scene::DrawScene()
     ////////////////////////////////////////////////////////////////////////////////
     // Bloom pass blur
     ////////////////////////////////////////////////////////////////////////////////
-    /*
-    RecalculateBloomKernel();
+    if (bloom_mode == 1) {
+        RecalculateBloomKernel();
 
-    glBindBuffer(GL_ARRAY_BUFFER, blur_kernel_block_id);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, kernel_vals.size() * sizeof(float), &kernel_vals[0]);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    CHECKERROR;
-
-    for (unsigned int i = 0; i < bloom_pass_count; ++i) {
-        shadowBlur_H_Program->Use();
-        loc = glGetUniformLocation(shadowBlur_H_Program->programId, "width");
-        glUniform1i(loc, bloom_kernerl_width);
-        imageUnit = 0; // Perhaps 0 for input image and 1 for output image
-        loc = glGetUniformLocation(shadowBlur_H_Program->programId, "src");
-        glBindImageTexture(imageUnit, postProcessingBuffer.textureID[1],
-            0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
-        glUniform1i(loc, imageUnit);
-
-
-        imageUnit = 1; // Perhaps 0 for input image and 1 for output image
-        loc = glGetUniformLocation(shadowBlur_H_Program->programId, "dst");
-        glBindImageTexture(imageUnit, postProcessingBuffer.textureID[2],
-            0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-        glUniform1i(loc, imageUnit);
-        // Tiles WxH image with groups sized 128x1
-        glDispatchCompute(glm::ceil(width / 128.0f), height, 1);
-
-        shadowBlur_H_Program->Unuse();
+        glBindBuffer(GL_ARRAY_BUFFER, blur_kernel_block_id);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, kernel_vals.size() * sizeof(float), &kernel_vals[0]);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
         CHECKERROR;
 
-        shadowBlur_V_Program->Use();
+        for (unsigned int i = 0; i < bloom_pass_count; ++i) {
+            shadowBlur_H_Program->Use();
+            loc = glGetUniformLocation(shadowBlur_H_Program->programId, "width");
+            glUniform1i(loc, bloom_kernerl_width);
+            imageUnit = 0; // Perhaps 0 for input image and 1 for output image
+            loc = glGetUniformLocation(shadowBlur_H_Program->programId, "src");
+            glBindImageTexture(imageUnit, postProcessingBuffer.textureID[1],
+                0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+            glUniform1i(loc, imageUnit);
 
-        loc = glGetUniformLocation(shadowBlur_V_Program->programId, "width");
-        glUniform1i(loc, bloom_kernerl_width);
-        imageUnit = 0; // Perhaps 0 for input image and 1 for output image
-        loc = glGetUniformLocation(shadowBlur_V_Program->programId, "src");
-        glBindImageTexture(imageUnit, postProcessingBuffer.textureID[2],
-            0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
-        glUniform1i(loc, imageUnit);
+
+            imageUnit = 1; // Perhaps 0 for input image and 1 for output image
+            loc = glGetUniformLocation(shadowBlur_H_Program->programId, "dst");
+            glBindImageTexture(imageUnit, postProcessingBuffer.textureID[2],
+                0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+            glUniform1i(loc, imageUnit);
+            // Tiles WxH image with groups sized 128x1
+            glDispatchCompute(glm::ceil(width / 128.0f), height, 1);
+
+            shadowBlur_H_Program->Unuse();
+            CHECKERROR;
+
+            shadowBlur_V_Program->Use();
+
+            loc = glGetUniformLocation(shadowBlur_V_Program->programId, "width");
+            glUniform1i(loc, bloom_kernerl_width);
+            imageUnit = 0; // Perhaps 0 for input image and 1 for output image
+            loc = glGetUniformLocation(shadowBlur_V_Program->programId, "src");
+            glBindImageTexture(imageUnit, postProcessingBuffer.textureID[2],
+                0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA32F);
+            glUniform1i(loc, imageUnit);
 
 
-        imageUnit = 1; // Perhaps 0 for input image and 1 for output image
-        loc = glGetUniformLocation(shadowBlur_V_Program->programId, "dst");
-        glBindImageTexture(imageUnit, postProcessingBuffer.textureID[1],
-            0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-        glUniform1i(loc, imageUnit);
-        // Set all uniform and image variables
-        // Tiles WxH image with groups sized 128x1
-        glDispatchCompute(width, glm::ceil(height / 128.0f), 1);
+            imageUnit = 1; // Perhaps 0 for input image and 1 for output image
+            loc = glGetUniformLocation(shadowBlur_V_Program->programId, "dst");
+            glBindImageTexture(imageUnit, postProcessingBuffer.textureID[1],
+                0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+            glUniform1i(loc, imageUnit);
+            // Set all uniform and image variables
+            // Tiles WxH image with groups sized 128x1
+            glDispatchCompute(width, glm::ceil(height / 128.0f), 1);
 
-        shadowBlur_V_Program->Unuse();
-        CHECKERROR;
+            shadowBlur_V_Program->Unuse();
+            CHECKERROR;
+        }
     }
-    */
 
     ////////////////////////////////////////////////////////////////////////////////
     // End of Bloom pass blur
@@ -1487,86 +1493,87 @@ void Scene::DrawScene()
     ////////////////////////////////////////////////////////////////////////////////
     // Bloom pass downsampling
     ////////////////////////////////////////////////////////////////////////////////
-    int start_width = width;
-    int start_height = height;
-    int downsampling_width = width/2;
-    int downsampling_height = height/2;
-    std::vector<int> width_list;
-    std::vector<int> height_list;
-    width_list.push_back(start_width);
-    height_list.push_back(start_height);
-    downsampling_Compute->Use();
-    postProcessingBuffer.BindTexture(downsampling_Compute->programId, 0, "inputTex", 1);
-
-    for (unsigned int mip_level = 0; mip_level < downsampling_passes; ++mip_level) {
-        loc = glGetUniformLocation(downsampling_Compute->programId, "mip_level");
-        glUniform1f(loc, float(mip_level));
-
-        imageUnit = 1; // Perhaps 0 for input image and 1 for output image
-        loc = glGetUniformLocation(downsampling_Compute->programId, "dst");
-        glBindImageTexture(imageUnit, postProcessingBuffer.textureID[1],
-            mip_level+1, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-        CHECKERROR;
-        glUniform1i(loc, imageUnit);
-
-        //width and height before the downsampling is performed
-        loc = glGetUniformLocation(downsampling_Compute->programId, "width");
-        glUniform1i(loc, start_width);
-        loc = glGetUniformLocation(downsampling_Compute->programId, "height");
-        glUniform1i(loc, start_height);
-        CHECKERROR;
-
-        // Runs with half width and half height of the previous pass.
-        glDispatchCompute(downsampling_width, downsampling_height, 1);
-        CHECKERROR;
-
-        start_width = downsampling_width;
-        start_height = downsampling_height;
-        downsampling_width /= 2;
-        downsampling_height /= 2;
-
+    if (bloom_mode == 0) {
+        int start_width = width;
+        int start_height = height;
+        int downsampling_width = width / 2;
+        int downsampling_height = height / 2;
+        std::vector<int> width_list;
+        std::vector<int> height_list;
         width_list.push_back(start_width);
         height_list.push_back(start_height);
+        downsampling_Compute->Use();
+        postProcessingBuffer.BindTexture(downsampling_Compute->programId, 0, "inputTex", 1);
+
+        for (unsigned int mip_level = 0; mip_level < downsampling_passes; ++mip_level) {
+            loc = glGetUniformLocation(downsampling_Compute->programId, "mip_level");
+            glUniform1f(loc, float(mip_level));
+
+            imageUnit = 1; // Perhaps 0 for input image and 1 for output image
+            loc = glGetUniformLocation(downsampling_Compute->programId, "dst");
+            glBindImageTexture(imageUnit, postProcessingBuffer.textureID[1],
+                mip_level + 1, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+            CHECKERROR;
+            glUniform1i(loc, imageUnit);
+
+            //width and height before the downsampling is performed
+            loc = glGetUniformLocation(downsampling_Compute->programId, "width");
+            glUniform1i(loc, start_width);
+            loc = glGetUniformLocation(downsampling_Compute->programId, "height");
+            glUniform1i(loc, start_height);
+            CHECKERROR;
+
+            // Runs with half width and half height of the previous pass.
+            glDispatchCompute(downsampling_width, downsampling_height, 1);
+            CHECKERROR;
+
+            start_width = downsampling_width;
+            start_height = downsampling_height;
+            downsampling_width /= 2;
+            downsampling_height /= 2;
+
+            width_list.push_back(start_width);
+            height_list.push_back(start_height);
+        }
+        downsampling_Compute->Unuse();
+        CHECKERROR;
+
+        ////////////////////////////////////////////////////////////////////////////////
+        // End of Bloom pass downsample
+        ////////////////////////////////////////////////////////////////////////////////
+
+        ////////////////////////////////////////////////////////////////////////////////
+        // Bloom pass upsample + additive blending
+        ////////////////////////////////////////////////////////////////////////////////
+
+        upsampling_Compute->Use();
+        postProcessingBuffer.BindTexture(upsampling_Compute->programId, 0, "inputTex", 1);
+
+        for (int mip_level = downsampling_passes; mip_level > 0; --mip_level) {
+            loc = glGetUniformLocation(upsampling_Compute->programId, "mip_level");
+            glUniform1f(loc, (float)mip_level);
+
+            imageUnit = 1; // Perhaps 0 for input image and 1 for output image
+            loc = glGetUniformLocation(upsampling_Compute->programId, "dst");
+            glBindImageTexture(imageUnit, postProcessingBuffer.textureID[2],
+                mip_level - 1, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+            CHECKERROR;
+            glUniform1i(loc, imageUnit);
+
+            //width and height before the upsampling is performed
+            loc = glGetUniformLocation(upsampling_Compute->programId, "width");
+            glUniform1i(loc, width_list[mip_level]);
+            loc = glGetUniformLocation(upsampling_Compute->programId, "height");
+            glUniform1i(loc, height_list[mip_level]);
+            CHECKERROR;
+
+            // Runs with double width and double height of the previous pass.
+            glDispatchCompute(width_list[mip_level - 1], height_list[mip_level - 1], 1);
+            CHECKERROR;
+        }
+        upsampling_Compute->Unuse();
+        CHECKERROR;
     }
-    downsampling_Compute->Unuse();
-    CHECKERROR;
-
-    ////////////////////////////////////////////////////////////////////////////////
-    // End of Bloom pass downsample
-    ////////////////////////////////////////////////////////////////////////////////
-
-    ////////////////////////////////////////////////////////////////////////////////
-    // Bloom pass upsample + additive blending
-    ////////////////////////////////////////////////////////////////////////////////
-
-    upsampling_Compute->Use();
-    postProcessingBuffer.BindTexture(upsampling_Compute->programId, 0, "inputTex", 1);
-
-    for (int mip_level = downsampling_passes; mip_level > 0; --mip_level) {
-        loc = glGetUniformLocation(upsampling_Compute->programId, "mip_level");
-        glUniform1f(loc, (float)mip_level);
-
-        imageUnit = 1; // Perhaps 0 for input image and 1 for output image
-        loc = glGetUniformLocation(upsampling_Compute->programId, "dst");
-        glBindImageTexture(imageUnit, postProcessingBuffer.textureID[2],
-            mip_level - 1, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-        CHECKERROR;
-        glUniform1i(loc, imageUnit);
-
-        //width and height before the upsampling is performed
-        loc = glGetUniformLocation(upsampling_Compute->programId, "width");
-        glUniform1i(loc, width_list[mip_level]);
-        loc = glGetUniformLocation(upsampling_Compute->programId, "height");
-        glUniform1i(loc, height_list[mip_level]);
-        CHECKERROR;
-
-        // Runs with double width and double height of the previous pass.
-        glDispatchCompute(width_list[mip_level-1], height_list[mip_level-1], 1);
-        CHECKERROR;
-    }
-    upsampling_Compute->Unuse();
-    CHECKERROR;
-
     ////////////////////////////////////////////////////////////////////////////////
     // End of Bloom pass upsample + additive blending
     ////////////////////////////////////////////////////////////////////////////////
@@ -1612,6 +1619,10 @@ void Scene::DrawScene()
 
     loc = glGetUniformLocation(programId, "bloomEnabled");
     glUniform1i(loc, bloom_enabled);
+    CHECKERROR;
+    
+    loc = glGetUniformLocation(programId, "bloomMode");
+    glUniform1i(loc, bloom_mode);
     CHECKERROR;
 
     loc = glGetUniformLocation(programId, "bloomFactor");

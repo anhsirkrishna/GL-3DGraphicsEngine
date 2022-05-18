@@ -14,6 +14,7 @@ uniform float tone_mapping_mode;
 uniform float gamma;
 
 uniform int bloomEnabled;
+uniform int bloomMode;
 uniform float bloomFactor;
 
 uniform float bloom_mip_level;
@@ -23,7 +24,12 @@ layout(location = 0) out vec4 out_color;
 void main() {
 	vec2 uv = gl_FragCoord.xy / vec2(width, height);
 	vec4 fragColor = texture(renderBuffer, uv);
-	vec4 bloomColor = texture(upsampleBuffer, uv);
+	vec4 bloomColor;
+	if (bloomMode == 0)
+		bloomColor = texture(upsampleBuffer, uv);
+	else
+		bloomColor = texture(bloomBuffer, uv);
+
 	if (drawFbo < 13){
 		out_color = fragColor;
 		return;
