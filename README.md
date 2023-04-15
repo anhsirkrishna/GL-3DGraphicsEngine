@@ -6,7 +6,7 @@ Custom 3D graphics engine using OpenGL. I implement several features using a mul
 
 1) Lighting using both Phong and BRDF algorithms. 
 
-![Graphics Framework 4_15_2023 10_48_41 AM](https://user-images.githubusercontent.com/15943818/232245675-4bca5d23-1b50-4610-8515-55132ba6d04f.png)
+![Graphics Framework 4_15_2023 11_03_53 AM](https://user-images.githubusercontent.com/15943818/232247116-f1d6b662-2da9-4e74-a74c-9594163b0a73.png)
 
 2) Shadows achieved with variance shadow maps. 
 
@@ -14,7 +14,7 @@ Custom 3D graphics engine using OpenGL. I implement several features using a mul
 
 3) Reflections implemented with reflection maps. 
 
-![Graphics Framework 4_15_2023 10_48_41 AM](https://user-images.githubusercontent.com/15943818/232245675-4bca5d23-1b50-4610-8515-55132ba6d04f.png)
+![Graphics Framework 4_15_2023 11_09_27 AM](https://user-images.githubusercontent.com/15943818/232247129-6baabddd-fc38-4337-a99b-86ede9a09747.png)
 
 4) Texture rendering with normal maps. 
 
